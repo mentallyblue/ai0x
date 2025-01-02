@@ -95,56 +95,36 @@ async function pollQueuePosition(jobId) {
 
 function displayAnalysis(data) {
     const resultDiv = document.getElementById('result');
-    const analysis = data.analysis;
+    const analysis = data?.analysis || {};
     
-    const detailedScores = analysis?.detailedScores || {
-        codeQuality: 0,
-        projectStructure: 0,
-        implementation: 0,
-        documentation: 0
-    };
-    
-    const larpScore = analysis?.larpScore || 0;
-    const [ratingText] = getRating(larpScore);
-
-    // Create a more minimal AI/Investment section
-    const riskLevel = data.analysis.investmentPotential?.riskLevel;
-    const riskSection = riskLevel ? `
-        <div class="risk-badge ${getRiskClass(riskLevel)}">
-            Risk: ${riskLevel}
-        </div>
-    ` : '';
-
     resultDiv.innerHTML = `
-        <div class="analysis-section">
-            <div class="score-visualization">
-                <div class="larp-score-display ${getScoreClass(larpScore)}">
-                    <div class="larp-score-label">LARP SCORE</div>
-                    <div class="score-header">
-                        <div class="larp-score-value">${larpScore}</div>
-                        ${riskSection}
-                    </div>
-                    <div class="larp-score-rating">${ratingText}</div>
-                    <div class="score-scale">Lower is Better</div>
+        <div class="analysis-result">
+            <div class="score-overview">
+                <div class="larp-score ${getScoreClass(analysis.larpScore)}">
+                    <span class="score-value">${analysis.larpScore || 0}</span>
+                    <span class="score-label">LARP Score</span>
                 </div>
                 
-                ${Object.entries(detailedScores)
-                    .filter(([key]) => !key.includes('Color')) // Filter out color fields
-                    .map(([key, value]) => `
-                        <div class="score-category">
-                            <div class="score-header">
-                                <span class="score-name">${key.replace(/([A-Z])/g, ' $1').trim()}</span>
-                                <span class="score-value ${getDetailedScoreClass(value)}">${value}/25</span>
-                            </div>
-                            <div class="score-bar-container">
-                                <div class="score-bar ${getDetailedScoreClass(value)}" 
-                                     style="width: ${100 - (value/25)*100}%"></div>
-                            </div>
-                        </div>
-                    `).join('')}
+                <div class="score-grid">
+                    ${createScoreCard('Code Quality', analysis.detailedScores?.codeQuality)}
+                    ${createScoreCard('Project Structure', analysis.detailedScores?.projectStructure)}
+                    ${createScoreCard('Implementation', analysis.detailedScores?.implementation)}
+                    ${createScoreCard('Documentation', analysis.detailedScores?.documentation)}
+                </div>
             </div>
 
-            ${marked.parse(analysis.fullAnalysis || '')}
+            <div class="analysis-text">
+                ${marked.parse(analysis.fullAnalysis || 'No analysis available')}
+            </div>
+        </div>
+    `;
+}
+
+function createScoreCard(title, score) {
+    return `
+        <div class="score-card ${getDetailedScoreClass(score || 0)}">
+            <span class="score-title">${title}</span>
+            <span class="score-number">${score || 0}/25</span>
         </div>
     `;
 }

@@ -16,7 +16,9 @@
     "ioredis": "^5.4.2",
     "marked": "^12.0.0",
     "mongoose": "^8.2.0",
-    "socket.io": "^4.8.1"
+    "socket.io": "^4.8.1",
+    "express-rate-limit": "^7.1.5",
+    "rate-limit-redis": "^4.2.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.3"

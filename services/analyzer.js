@@ -17,8 +17,14 @@ async function analyzeRepo(repoInfo, userApiKey = null) {
         if (existingRepo && 
             existingRepo.lastAnalyzed > Date.now() - 24 * 60 * 60 * 1000) {
             return {
-                repoDetails: existingRepo,
-                analysis: existingRepo.analysis.fullAnalysis,
+                repoDetails: {
+                    full_name: existingRepo.fullName,
+                    description: existingRepo.description,
+                    language: existingRepo.language,
+                    stargazers_count: existingRepo.stars,
+                    forks_count: existingRepo.forks
+                },
+                analysis: existingRepo.analysis,
                 cached: true
             };
         }
@@ -33,92 +39,58 @@ async function analyzeRepo(repoInfo, userApiKey = null) {
         }
 
         // Create the analysis prompt
-        const prompt = `You are a strict and thorough technical analyzer reviewing a GitHub repository. Focus heavily on identifying AI usage and potential misrepresentation. Provide a detailed technical assessment in the following format:
+        const prompt = `Analyze this GitHub repository:
 
-        Repository Details:
-        - Name: ${repoDetails.full_name}
-        - Description: ${description || 'Unable to generate description'}
-        - Stars: ${repoDetails.stargazers_count}
-        - Language: ${repoDetails.language}
+Repository: ${repoDetails.full_name}
+Description: ${description || 'N/A'}
+Language: ${repoDetails.language}
+Stars: ${repoDetails.stargazers_count}
 
-        # Investment Potential (NOT FINANCIAL ADVICE)
-        - Risk Level: [High/Medium/Low]
-        - Key Strengths:
-        - Red Flags:
-        - Market Opportunity:
-        - Development Activity:
-        - Community Engagement:
+Technical Analysis:
+${codeContents.map(file => `
+\`\`\`${getFileExtension(file.path)}:${file.path}
+${file.content.slice(0, 500)}${file.content.length > 500 ? '...' : ''}
+\`\`\`
+`).join('\n')}
 
-        # AI Implementation Analysis
-        ## AI Usage Detection
-        - AI Providers Found: [List of detected AI providers]
-        - Integration Types: [API calls/SDK usage/etc]
-        - Implementation Quality: [Assessment of AI implementation]
-        - Transparency Rating: [High/Medium/Low] (How clearly is AI usage disclosed?)
-        
-        ## Potential Misrepresentation
-        - Claims vs Reality: [Analysis of any claims about AI capabilities]
-        - Marketing Accuracy: [Assessment of how the project presents its AI features]
-        - User Disclosure: [How well users are informed about AI usage]
+Provide:
+1. Code quality assessment
+2. Implementation analysis
+3. Security review
+4. Best practices evaluation
 
-        # SCORES (Lower is Better)
-        LARP Score: [0-100]
-        🟢 0-30: Exceptional
-        🟡 31-50: Good
-        🟠 51-70: Needs Improvement
-        🔴 71-100: Critical Issues
+Score each category (0-25):
+• Code Quality: [Score] - [Reason]
+• Project Structure: [Score] - [Reason]
+• Implementation: [Score] - [Reason]
+• Documentation: [Score] - [Reason]
 
-        Individual Scores (0-25, lower is better):
-        Code Quality: [0-25]
-        🟢 0-5: Exceptional
-        🟡 6-12: Good
-        🟠 13-19: Needs Work
-        🔴 20-25: Critical Issues
+Calculate LARP Score (0-100):
+🟢 0-30: Exceptional
+🟡 31-50: Good
+🟠 51-70: Needs Work
+🔴 71-100: Critical Issues`;
 
-        Project Structure: [0-25] (Same scale as above)
-        Implementation: [0-25] (Same scale as above)
-        Documentation: [0-25] (Same scale as above)
+        const systemPrompt = `You are a strict technical analyzer specializing in GitHub repositories. Your analysis must be:
 
-        ${codeContents.length > 0 ? `Code Analysis:\n${codeContents.map(f => `File: ${f.path}\n${f.content}`).join('\n\n')}` : 'No code files available for analysis.'}
+1. Thorough - Examine all aspects of the codebase
+2. Critical - Point out both strengths and weaknesses
+3. Objective - Base analysis on code, not claims
+4. Detailed - Provide specific examples
+5. Structured - Follow the exact format
 
-        Please provide your analysis using this scoring system:
+Focus on:
+• Code quality and best practices
+• AI implementation accuracy
+• Technical debt and scalability
+• Documentation completeness
+• Security considerations
 
-        # SCORES (Lower is Better)
-        LARP Score: [0-100]
-        🟢 0-30: Exceptional
-        🟡 31-50: Good
-        🟠 51-70: Needs Improvement
-        🔴 71-100: Critical Issues
-
-        Individual Scores (0-25, lower is better):
-        Code Quality: [0-25]
-        🟢 0-5: Exceptional
-        🟡 6-12: Good
-        🟠 13-19: Needs Work
-        🔴 20-25: Critical Issues
-
-        Project Structure: [0-25] (Same scale as above)
-        Implementation: [0-25] (Same scale as above)
-        Documentation: [0-25] (Same scale as above)
-
-        [Rest of the existing prompt...]`;
-
-        const systemPrompt = `You are a strict technical analyzer that must provide detailed, critical scores.
-The scoring system is golf-style - lower scores indicate better quality.
-LARP Score ranges:
-🟢 0-30: Exceptional quality
-🟡 31-50: Good quality
-🟠 51-70: Needs improvement
-🔴 71-100: Critical issues
-
-Individual category scores (0-25):
-🟢 0-5: Exceptional
-🟡 6-12: Good
-🟠 13-19: Needs work
-🔴 20-25: Critical issues
-
-Always include actual code snippets from the repository when discussing issues.
-`;
+Always include:
+• Specific code examples for issues
+• Detailed score justifications
+• Concrete improvement recommendations
+• Technical risk assessment`;
 
         const response = await anthropic.messages.create({
             model: 'claude-3-5-sonnet-20241022',
@@ -176,6 +148,7 @@ Always include actual code snippets from the repository when discussing issues.
                 lastAnalyzed: Date.now(),
                 language: repoDetails.language,
                 stars: repoDetails.stargazers_count,
+                forks: repoDetails.forks_count,
                 summary: summary
             },
             { upsert: true, new: true }
@@ -307,85 +280,34 @@ function extractRedFlags(analysis) {
     return [];
 }
 
-function detectAIIntegrations(codeContents) {
+function detectAIIntegrations(files) {
     const aiPatterns = {
-        openai: {
-            patterns: [/openai/i, /gpt/i, /completion/i, /davinci/i],
-            apiKeys: [/sk-[a-zA-Z0-9]{32,}/],
-            imports: [/(?:import|require).*?openai/],
-            endpoints: [/api\.openai\.com/]
-        },
-        anthropic: {
-            patterns: [/anthropic/i, /claude/i],
-            apiKeys: [/sk-ant-api[a-zA-Z0-9-]*/],
-            imports: [/(?:import|require).*?anthropic/],
-            endpoints: [/api\.anthropic\.com/]
-        },
-        huggingface: {
-            patterns: [/huggingface/i, /transformers/i],
-            apiKeys: [/hf_[a-zA-Z0-9]{32,}/],
-            imports: [/(?:import|require).*?transformers/]
-        },
-        cohere: {
-            patterns: [/cohere/i],
-            apiKeys: [/[a-zA-Z0-9]{32,}/],
-            imports: [/(?:import|require).*?cohere/]
-        },
-        replicate: {
-            patterns: [/replicate/i],
-            apiKeys: [/r8_[a-zA-Z0-9]{32,}/],
-            imports: [/(?:import|require).*?replicate/]
-        }
+        openai: /openai|gpt|davinci|completion/i,
+        anthropic: /anthropic|claude/i,
+        huggingface: /huggingface|transformers/i,
+        tensorflow: /tensorflow|tf\./i,
+        pytorch: /torch|pytorch/i
     };
 
-    const findings = {};
+    const integrations = [];
     
-    for (const [provider, patterns] of Object.entries(aiPatterns)) {
-        findings[provider] = {
-            found: false,
-            locations: [],
-            imports: [],
-            possibleEndpoints: [],
-            apiKeyPresent: false
-        };
+    files.forEach(file => {
+        // Ensure content is a string
+        const content = typeof file.content === 'string' 
+            ? file.content 
+            : String(file.content);
+            
+        Object.entries(aiPatterns).forEach(([provider, pattern]) => {
+            if (pattern.test(content)) {
+                integrations.push({
+                    provider,
+                    file: file.path
+                });
+            }
+        });
+    });
 
-        for (const file of codeContents) {
-            // Check for patterns
-            patterns.patterns.forEach(pattern => {
-                if (pattern.test(file.content)) {
-                    findings[provider].found = true;
-                    findings[provider].locations.push(file.path);
-                }
-            });
-
-            // Check for imports
-            patterns.imports?.forEach(importPattern => {
-                const matches = file.content.match(importPattern);
-                if (matches) {
-                    findings[provider].imports.push({
-                        file: file.path,
-                        import: matches[0]
-                    });
-                }
-            });
-
-            // Check for API keys (safely)
-            patterns.apiKeys?.forEach(keyPattern => {
-                if (keyPattern.test(file.content)) {
-                    findings[provider].apiKeyPresent = true;
-                }
-            });
-
-            // Check for endpoints
-            patterns.endpoints?.forEach(endpointPattern => {
-                if (endpointPattern.test(file.content)) {
-                    findings[provider].possibleEndpoints.push(file.path);
-                }
-            });
-        }
-    }
-
-    return findings;
+    return [...new Set(integrations)];
 }
 
 function mapAILogicFlow(codeContents, aiFindings) {

@@ -1274,4 +1274,68 @@ button::after {
     background: var(--bg-secondary);
     border-radius: 12px;
     border: 1px solid var(--border);
+}
+
+.analysis-result {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.score-overview {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.larp-score {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 15px 30px;
+    border-radius: 8px;
+    background: var(--bg-secondary);
+}
+
+.score-value {
+    font-size: 36px;
+    font-weight: bold;
+}
+
+.score-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    width: 100%;
+}
+
+.score-card {
+    padding: 15px;
+    border-radius: 8px;
+    background: var(--bg-secondary);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.analysis-text {
+    background: var(--bg-secondary);
+    padding: 20px;
+    border-radius: 8px;
+    line-height: 1.6;
+}
+
+.analysis-text pre {
+    background: var(--bg-primary);
+    padding: 10px;
+    border-radius: 4px;
+    overflow-x: auto;
+    margin: 10px 0;
+}
+
+.analysis-text code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
 } 
