@@ -4,18 +4,27 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI0x | Repository Analyzer</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap">
     <link rel="stylesheet" href="/css/styles.css">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="/js/main.js" defer></script>
+    <link rel="icon" type="image/x-icon" href="/images/image.jpg">
+    <link rel="icon" type="image/png" sizes="32x32" href="/images/image.jpg">
+    <link rel="icon" type="image/png" sizes="16x16" href="/images/image.jpg">
 </head>
 <body>
     <header class="header">
         <div class="header-content">
-            <a href="/" class="logo">AI0x</a>
+            <a href="/" class="logo">
+                <img src="/images/image.jpg" alt="AI0x" class="logo-img">
+            </a>
             <nav class="nav-links">
                 <a href="/" class="nav-link active">Analyze</a>
                 <a href="/history.html" class="nav-link">History</a>
+                <div class="queue-status-header" id="queueStatusHeader">
+                    <span class="queue-count">Queue: 0</span>
+                </div>
                 <div class="social-links">
                     <a href="https://twitter.com/ai0x_tool" target="_blank" class="social-link" title="Follow us on X">
                         <svg width="20" height="20" viewBox="0 0 24 24">

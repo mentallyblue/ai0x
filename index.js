@@ -1,14 +1,36 @@
 require('dotenv').config();
 const express = require('express');
+const app = express();
+const http = require('http').createServer(app);
+const io = require('socket.io')(http, {
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+    },
+    transports: ['websocket', 'polling']
+});
 const connectDB = require('./config/database');
 const { analyzeRepo } = require('./services/analyzer');
 const { extractRepoInfo } = require('./utils/githubUtils');
 const Repository = require('./models/Repository');
 const ApiKey = require('./models/ApiKey');
 
-const app = express();
+// Set up middleware
 app.use(express.json());
 app.use(express.static('public'));
+
+// Set up Socket.IO
+global.io = io;
+
+io.on('connection', (socket) => {
+    console.log('Client connected');
+    socket.on('disconnect', () => {
+        console.log('Client disconnected');
+    });
+});
+
+// Now import queueTracker after Socket.IO is set up
+const { queueTracker } = require('./services/queueService');
 
 // Connect to MongoDB
 connectDB();
@@ -61,18 +83,29 @@ app.get('/api/repository/:owner/:repo', async (req, res) => {
 
 app.post('/api/analyze', async (req, res) => {
     try {
-        const { repoUrl, apiKey } = req.body;
-        const repoInfo = extractRepoInfo(repoUrl);
+        const { repoUrl } = req.body;
+        if (!repoUrl) {
+            return res.status(400).json({ error: 'Repository URL is required' });
+        }
+
+        console.log('Analyzing repo URL:', repoUrl);
         
-        if (!repoInfo) {
+        const repoInfo = extractRepoInfo(repoUrl);
+        if (!repoInfo || !repoInfo.owner || !repoInfo.repo) {
             return res.status(400).json({ error: 'Invalid GitHub repository URL' });
         }
 
-        const result = await analyzeRepo(repoInfo, apiKey);
-        res.json(result);
+        // Add to queue
+        const jobId = await queueTracker.addToQueue(`${repoInfo.owner}/${repoInfo.repo}`);
+        console.log('Added to queue with jobId:', jobId);
+        
+        res.json({ jobId });
     } catch (error) {
         console.error('Analysis error:', error);
-        res.status(500).json({ error: 'Failed to analyze repository' });
+        res.status(500).json({ 
+            error: error.message || 'Failed to analyze repository',
+            details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
     }
 });
 
@@ -99,6 +132,18 @@ app.get('/api/analyses', async (req, res) => {
     }
 });
 
-app.listen(PORT, () => {
+// Add the queue position endpoint
+app.get('/api/queue-position/:jobId', async (req, res) => {
+    try {
+        const { jobId } = req.params;
+        const position = await queueTracker.getQueuePosition(parseInt(jobId, 10));
+        res.json(position);
+    } catch (error) {
+        console.error('Queue position error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+http.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 }); 

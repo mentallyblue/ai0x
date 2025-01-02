@@ -6,7 +6,7 @@ async function analyzeRepo() {
     }
 
     const resultDiv = document.getElementById('result');
-    resultDiv.innerHTML = '<div class="loading">Analyzing repository... Please wait...</div>';
+    resultDiv.innerHTML = '<div class="loading">Adding to analysis queue...</div>';
 
     try {
         const response = await fetch('/api/analyze', {
@@ -23,38 +23,107 @@ async function analyzeRepo() {
             throw new Error(data.error || 'Failed to analyze repository');
         }
 
-        displayAnalysis(data);
-        loadRecentAnalyses();
+        if (!data || !data.jobId) {
+            throw new Error('Invalid response from server');
+        }
+
+        console.log('Successfully queued analysis with jobId:', data.jobId);
+        pollQueuePosition(data.jobId);
 
     } catch (error) {
         console.error('Analysis error:', error);
         resultDiv.innerHTML = `
             <div class="error">
-                Error analyzing repository: ${error.message}
+                <p>Error analyzing repository:</p>
+                <p class="error-message">${error.message}</p>
+                <button onclick="analyzeRepo()" class="retry-button">Retry</button>
             </div>
         `;
     }
+}
+
+async function pollQueuePosition(jobId) {
+    const resultDiv = document.getElementById('result');
+    
+    const checkPosition = async () => {
+        try {
+            const response = await fetch(`/api/queue-position/${jobId}`);
+            const data = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to check queue position');
+            }
+
+            if (data.status === 'failed') {
+                throw new Error(data.error || 'Analysis failed');
+            }
+
+            if (data.status === 'completed' && data.result) {
+                // Analysis completed
+                displayAnalysis(data.result);
+                return;
+            }
+
+            // Update queue position display
+            const progress = ((data.total - data.position) / data.total) * 100;
+            resultDiv.innerHTML = `
+                <div class="queue-status">
+                    <div class="queue-position">Position in queue: ${data.position}</div>
+                    <div class="queue-progress">
+                        <div class="progress-bar" style="width: ${progress}%"></div>
+                    </div>
+                    <div class="queue-message">Please wait while we analyze your repository...</div>
+                </div>
+            `;
+
+            // Continue polling
+            setTimeout(checkPosition, 2000);
+        } catch (error) {
+            console.error('Queue position error:', error);
+            resultDiv.innerHTML = `
+                <div class="error">
+                    <p>Error: ${error.message}</p>
+                    <button onclick="analyzeRepo()" class="retry-button">Retry Analysis</button>
+                </div>
+            `;
+        }
+    };
+
+    // Start polling
+    checkPosition();
 }
 
 function displayAnalysis(data) {
     const resultDiv = document.getElementById('result');
     const analysis = data.analysis;
     
-    // Handle both direct and nested analysis structures
-    const detailedScores = analysis?.detailedScores || analysis?.fullAnalysis?.detailedScores || {};
-    const larpScore = analysis?.larpScore || analysis?.fullAnalysis?.larpScore || 0;
-    const analysisText = typeof analysis === 'string' ? analysis : 
-                        typeof analysis?.fullAnalysis === 'string' ? analysis.fullAnalysis : '';
+    // Better handling of nested analysis structure
+    const detailedScores = analysis?.detailedScores || {
+        codeQuality: 0,
+        projectStructure: 0,
+        implementation: 0,
+        documentation: 0
+    };
     
-    // Ensure we have default values for all scores
+    const larpScore = analysis?.larpScore || 0;
+    const analysisText = typeof analysis === 'string' ? analysis : 
+                        analysis?.fullAnalysis || '';
+    
+    // Ensure we have valid numbers for all scores
     const scores = {
-        codeQuality: detailedScores?.codeQuality || 0,
-        projectStructure: detailedScores?.projectStructure || 0,
-        implementation: detailedScores?.implementation || 0,
-        documentation: detailedScores?.documentation || 0
+        codeQuality: Number(detailedScores.codeQuality) || 0,
+        projectStructure: Number(detailedScores.projectStructure) || 0,
+        implementation: Number(detailedScores.implementation) || 0,
+        documentation: Number(detailedScores.documentation) || 0
     };
 
-    // Get rating based on LARP score
+    // Add logging for debugging
+    console.log('Analysis data:', {
+        larpScore,
+        detailedScores: scores,
+        analysisText: analysisText.substring(0, 100) + '...' // Log first 100 chars
+    });
+
     const [ratingText] = getRating(larpScore);
 
     resultDiv.innerHTML = `
@@ -63,67 +132,39 @@ function displayAnalysis(data) {
                 <div class="larp-score-display">
                     <div class="larp-score-label">LARP SCORE</div>
                     <div class="larp-score-value">${larpScore}</div>
-                    <div class="larp-score-label">${ratingText}</div>
+                    <div class="larp-score-rating ${ratingText.toLowerCase()}">${ratingText}</div>
                 </div>
                 
-                <div class="score-category">
-                    <div class="score-header">
-                        <span class="score-name">
-                            Code Quality
-                            <span class="info-tooltip" data-tooltip="Evaluates code organization, patterns, and best practices">ⓘ</span>
-                        </span>
-                        <span class="score-value">${scores.codeQuality}/25</span>
+                ${Object.entries(scores).map(([key, value]) => `
+                    <div class="score-category">
+                        <div class="score-header">
+                            <span class="score-name">
+                                ${key.replace(/([A-Z])/g, ' $1').trim()}
+                                <span class="info-tooltip" data-tooltip="${getScoreTooltip(key)}">ⓘ</span>
+                            </span>
+                            <span class="score-value">${value}/25</span>
+                        </div>
+                        <div class="score-bar-container">
+                            <div class="score-bar" style="width: ${(value/25)*100}%"></div>
+                        </div>
                     </div>
-                    <div class="score-bar-container">
-                        <div class="score-bar" style="width: ${(scores.codeQuality/25)*100}%"></div>
-                    </div>
-                </div>
-
-                <div class="score-category">
-                    <div class="score-header">
-                        <span class="score-name">
-                            Project Structure
-                            <span class="info-tooltip" data-tooltip="Assesses project organization and architecture">ⓘ</span>
-                        </span>
-                        <span class="score-value">${scores.projectStructure}/25</span>
-                    </div>
-                    <div class="score-bar-container">
-                        <div class="score-bar" style="width: ${(scores.projectStructure/25)*100}%"></div>
-                    </div>
-                </div>
-
-                <div class="score-category">
-                    <div class="score-header">
-                        <span class="score-name">
-                            Implementation
-                            <span class="info-tooltip" data-tooltip="Evaluates code implementation and functionality">ⓘ</span>
-                        </span>
-                        <span class="score-value">${scores.implementation}/25</span>
-                    </div>
-                    <div class="score-bar-container">
-                        <div class="score-bar" style="width: ${(scores.implementation/25)*100}%"></div>
-                    </div>
-                </div>
-
-                <div class="score-category">
-                    <div class="score-header">
-                        <span class="score-name">
-                            Documentation
-                            <span class="info-tooltip" data-tooltip="Reviews code documentation and comments">ⓘ</span>
-                        </span>
-                        <span class="score-value">${scores.documentation}/25</span>
-                    </div>
-                    <div class="score-bar-container">
-                        <div class="score-bar" style="width: ${(scores.documentation/25)*100}%"></div>
-                    </div>
-                </div>
+                `).join('')}
             </div>
 
             ${analysisText ? marked.parse(analysisText) : '<div class="error">No analysis text available</div>'}
         </div>
     `;
+}
 
-    // Remove the animation code since we're setting widths directly
+// Helper function for score tooltips
+function getScoreTooltip(scoreType) {
+    const tooltips = {
+        codeQuality: "Evaluates code organization, patterns, and best practices",
+        projectStructure: "Assesses project organization and architecture",
+        implementation: "Evaluates code implementation and functionality",
+        documentation: "Reviews code documentation and comments"
+    };
+    return tooltips[scoreType] || "";
 }
 
 function getRating(score) {
@@ -210,6 +251,43 @@ async function loadAnalysis(fullName) {
 
 // Initialize when the page loads
 document.addEventListener('DOMContentLoaded', function() {
+    let socket;
+    try {
+        socket = io({
+            transports: ['websocket', 'polling'],
+            reconnectionAttempts: 5,
+            reconnectionDelay: 1000,
+            timeout: 20000
+        });
+
+        const queueStatusHeader = document.getElementById('queueStatusHeader');
+        
+        socket.on('connect', () => {
+            console.log('Socket connected successfully');
+            if (queueStatusHeader) {
+                queueStatusHeader.innerHTML = '<span class="queue-count">Queue: Connected</span>';
+            }
+        });
+
+        socket.on('queueUpdate', (data) => {
+            if (queueStatusHeader) {
+                queueStatusHeader.innerHTML = `<span class="queue-count">Queue: ${data.size}</span>`;
+            }
+        });
+
+        socket.on('connect_error', (error) => {
+            console.error('Socket connection error:', error);
+            if (queueStatusHeader) {
+                queueStatusHeader.innerHTML = '<span class="queue-count">Queue: Offline</span>';
+            }
+        });
+    } catch (error) {
+        console.error('Socket.IO initialization error:', error);
+        if (queueStatusHeader) {
+            queueStatusHeader.innerHTML = '<span class="queue-count">Queue: Offline</span>';
+        }
+    }
+
     // Configure marked options
     marked.setOptions({
         breaks: true,

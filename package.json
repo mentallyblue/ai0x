@@ -10,10 +10,13 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.14.1",
     "axios": "^1.6.7",
+    "bull": "^4.16.5",
     "dotenv": "^16.4.1",
     "express": "^4.18.2",
+    "ioredis": "^5.4.2",
     "marked": "^12.0.0",
-    "mongoose": "^8.2.0"
+    "mongoose": "^8.2.0",
+    "socket.io": "^4.8.1"
   },
   "devDependencies": {
     "nodemon": "^3.0.3"

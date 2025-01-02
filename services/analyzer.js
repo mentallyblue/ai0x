@@ -8,195 +8,229 @@ const anthropic = new Anthropic({
 });
 
 async function analyzeRepo(repoInfo, userApiKey = null) {
-    // Check if recent analysis exists (less than 24 hours old)
-    const existingRepo = await Repository.findOne({
-        fullName: `${repoInfo.owner}/${repoInfo.repo}`
-    });
+    try {
+        // Check if recent analysis exists
+        const existingRepo = await Repository.findOne({
+            fullName: `${repoInfo.owner}/${repoInfo.repo}`
+        });
 
-    if (existingRepo && 
-        existingRepo.lastAnalyzed > Date.now() - 24 * 60 * 60 * 1000) {
-        return {
-            repoDetails: existingRepo,
-            analysis: existingRepo.analysis.fullAnalysis,
-            cached: true
-        };
-    }
-
-    const repoDetails = await getRepoDetails(repoInfo);
-    const codeContents = await getRepoContents(repoInfo);
-    
-    // Perform AI integration analysis
-    const aiIntegrations = detectAIIntegrations(codeContents);
-    const logicFlow = mapAILogicFlow(codeContents, aiIntegrations);
-
-    // Add AI findings to the prompt
-    const aiAnalysis = `
-    AI Integration Analysis:
-    ${JSON.stringify(aiIntegrations, null, 2)}
-
-    Logic Flow Analysis:
-    ${JSON.stringify(logicFlow, null, 2)}
-    `;
-
-    const prompt = `You are analyzing a GitHub repository. Provide a detailed technical assessment.
-    
-    Repository Details:
-    - Name: ${repoDetails.full_name}
-    - Description: ${repoDetails.description || 'No description provided'}
-    - Stars: ${repoDetails.stargazers_count}
-    - Forks: ${repoDetails.forks_count}
-    - Issues: ${repoDetails.open_issues_count}
-    - Last Updated: ${repoDetails.updated_at}
-    - Language: ${repoDetails.language}
-    - Topics: ${repoDetails.topics?.join(', ') || 'None'}
-    - Watchers: ${repoDetails.watchers_count}
-
-    Code Analysis:
-    ${codeContents.map(file => `
-    File: ${file.path}
-    \`\`\`${file.path.split('.').pop()}
-    ${file.content}
-    \`\`\`
-    `).join('\n')}
-    
-    Please start your analysis with:
-
-    LARP Score (0-100): [single number between 0-100]
-
-    Then continue with the rest of your analysis...
-
-    1. Detailed LARP Score Breakdown:
-    - Code quality and organization (25 points): [score]
-    - Project structure and architecture (25 points): [score]
-    - Implementation completeness (25 points): [score]
-    - Documentation and comments (25 points): [score]
-    Total LARP Score: [sum of above]
-
-    2. Code Quality Assessment:
-    - Analyze code structure and patterns
-    - Identify any anti-patterns or code smells
-    - Check for proper error handling
-    - Assess code organization and modularity
-    
-    3. Technical Implementation Analysis:
-    - Evaluate the technical approach
-    - Identify any logical flaws
-    - Assess scalability and maintainability
-    - Look for security vulnerabilities
-    
-    4. Beginner Mistakes & Red Flags:
-    - List any novice-level coding mistakes
-    - Identify copy-pasted code segments
-    - Point out security oversights
-    - Note any suspicious patterns
-    
-    5. Technology Stack Details:
-    - List all identified technologies
-    - Analyze how technologies are integrated
-    - Assess if technologies are used appropriately
-    
-    6. Overall Technical Assessment:
-    - Summarize the technical legitimacy
-    - Rate the project's technical maturity
-    - Provide specific improvement recommendations
-    
-    Additional Technical Analysis:
-    ${aiAnalysis}
-    
-    Format the response in clear markdown with appropriate sections and code examples where relevant.`;
-
-    const completion = await anthropic.messages.create({
-        model: "claude-3-sonnet-20240229",
-        max_tokens: 4000,
-        temperature: 0.7,
-        messages: [
-            { role: "user", content: prompt }
-        ],
-        system: "You are an expert software engineer specializing in code analysis and security auditing. You excel at detecting quality issues, security vulnerabilities, and assessing technical legitimacy of projects."
-    });
-
-    // Parse the analysis to extract structured data
-    const analysis = completion.content[0].text;
-    const larpScore = extractLarpScore(analysis);
-    const detailedScores = extractDetailedScores(analysis);
-    console.log('Extracted LARP score before saving:', larpScore); // Debug log
-    
-    // Update or create repository record
-    const repoData = {
-        fullName: repoDetails.full_name,
-        owner: repoInfo.owner,
-        repoName: repoInfo.repo,
-        description: repoDetails.description,
-        language: repoDetails.language,
-        stars: repoDetails.stargazers_count,
-        forks: repoDetails.forks_count,
-        lastAnalyzed: new Date(),
-        analysis: {
-            fullAnalysis: analysis,
-            larpScore: larpScore,
-            detailedScores: detailedScores,
-            techStack: extractTechStack(analysis),
-            redFlags: extractRedFlags(analysis)
+        if (existingRepo && 
+            existingRepo.lastAnalyzed > Date.now() - 24 * 60 * 60 * 1000) {
+            return {
+                repoDetails: existingRepo,
+                analysis: existingRepo.analysis.fullAnalysis,
+                cached: true
+            };
         }
-    };
 
-    let savedRepo;
-    if (existingRepo) {
-        savedRepo = await Repository.findByIdAndUpdate(
-            existingRepo._id, 
-            repoData,
-            { new: true } // Return the updated document
+        const repoDetails = await getRepoDetails(repoInfo);
+        const codeContents = await getRepoContents(repoInfo);
+        
+        // Create the analysis prompt
+        const prompt = `You are analyzing a GitHub repository. Provide a detailed technical assessment in the following format:
+
+        Repository Details:
+        - Name: ${repoDetails.full_name}
+        - Description: ${repoDetails.description || 'No description provided'}
+        - Stars: ${repoDetails.stargazers_count}
+        - Language: ${repoDetails.language}
+
+        ${codeContents.length > 0 ? `Code Analysis:\n${codeContents.map(f => `File: ${f.path}\n${f.content}`).join('\n\n')}` : 'No code files available for analysis.'}
+
+        Please provide your analysis in this EXACT markdown format:
+
+        # SCORES
+        LARP Score: [0-100]
+        Code Quality: [0-25]
+        Project Structure: [0-25]
+        Implementation: [0-25]
+        Documentation: [0-25]
+
+        # Detailed Breakdown
+
+        ## Code Quality ([score]/25)
+        - [Bullet points about code quality]
+        - [Discussion of naming conventions]
+        - [Analysis of code organization]
+        - [Comments on error handling]
+
+        ## Project Structure ([score]/25)
+        - [Analysis of directory organization]
+        - [Discussion of modularity]
+        - [Evaluation of file separation]
+        - [Thoughts on configuration management]
+
+        ## Implementation ([score]/25)
+        - [Analysis of core functionality]
+        - [Discussion of performance]
+        - [Evaluation of error handling]
+        - [Comments on scalability]
+
+        ## Documentation ([score]/25)
+        - [Analysis of README quality]
+        - [Evaluation of code comments]
+        - [Discussion of API documentation]
+        - [Assessment of setup instructions]
+
+        # Key Findings
+        - [Major strength 1]
+        - [Major strength 2]
+        - [Key concern 1]
+        - [Key concern 2]
+
+        # Technical Deep Dive
+        ## Architecture Overview
+        [Detailed discussion of system architecture]
+
+        ## Code Patterns
+        [Analysis of design patterns and code organization]
+
+        ## Performance Considerations
+        [Discussion of performance implications]
+
+        # Recommendations
+        ## High Priority
+        - [Critical improvement 1]
+        - [Critical improvement 2]
+
+        ## Medium Priority
+        - [Important improvement 1]
+        - [Important improvement 2]
+
+        ## Low Priority
+        - [Nice-to-have improvement 1]
+        - [Nice-to-have improvement 2]
+
+        # Tech Stack Analysis
+        - Primary Language: [language]
+        - Key Dependencies: [list major dependencies]
+        - Development Tools: [list development tools]
+        - Testing Framework: [testing tools used]
+
+        # Security Considerations
+        - [Security consideration 1]
+        - [Security consideration 2]
+        - [Potential vulnerabilities]
+
+        # AI Integration Analysis
+        [If applicable, analysis of AI-related code and patterns]
+
+        # Red Flags
+        - [Major concern 1]
+        - [Major concern 2]
+        - [Potential issues]`;
+
+        const response = await anthropic.messages.create({
+            model: 'claude-3-5-sonnet-20241022',
+            max_tokens: 4000,
+            system: "You are a technical analyzer that must provide scores in this exact format: SCORES:\nLARP Score: [number]\nCode Quality: [number]\nProject Structure: [number]\nImplementation: [number]\nDocumentation: [number]",
+            messages: [{ 
+                role: 'user', 
+                content: prompt
+            }]
+        });
+
+        // Add debug logging
+        console.log('Claude Response:', response.content[0].text.substring(0, 500)); // Log first 500 chars
+
+        const analysis = response.content[0].text;
+        
+        // Extract structured data
+        const larpScore = extractLarpScore(analysis) || 0;
+        const detailedScores = extractDetailedScores(analysis) || {
+            codeQuality: 0,
+            projectStructure: 0,
+            implementation: 0,
+            documentation: 0
+        };
+
+        // Save to database
+        const analysisResult = {
+            fullAnalysis: analysis,
+            larpScore,
+            detailedScores,
+            techStack: extractTechStack(analysis),
+            redFlags: extractRedFlags(analysis),
+            aiIntegrations: codeContents.length > 0 ? detectAIIntegrations(codeContents) : []
+        };
+
+        // Create or update repository record
+        await Repository.findOneAndUpdate(
+            { fullName: `${repoInfo.owner}/${repoInfo.repo}` },
+            {
+                owner: repoInfo.owner,
+                repoName: repoInfo.repo,
+                fullName: `${repoInfo.owner}/${repoInfo.repo}`,
+                analysis: analysisResult,
+                lastAnalyzed: Date.now(),
+                language: repoDetails.language,
+                stars: repoDetails.stargazers_count
+            },
+            { upsert: true, new: true }
         );
-    } else {
-        savedRepo = await Repository.create(repoData);
-    }
-    
-    console.log('Saved LARP score:', savedRepo.analysis.larpScore); // Debug log
 
-    // Record scan in history
-    if (userApiKey) {
-        await ApiKey.findOneAndUpdate(
-            { key: userApiKey },
-            { 
-                $inc: { requestsToday: 1 },
-                lastRequest: new Date()
-            }
-        );
-    }
+        return {
+            repoDetails,
+            analysis: analysisResult,
+            cached: false
+        };
 
-    return {
-        repoDetails: savedRepo,
-        analysis: analysis,
-        cached: false
-    };
+    } catch (error) {
+        console.error('Analysis error:', error);
+        throw new Error(`Failed to analyze repository: ${error.message}`);
+    }
 }
 
 // Helper functions to extract structured data from analysis text
 function extractLarpScore(analysis) {
     try {
-        // First try to find the total LARP score
-        const totalPattern = /LARP Score \(0-100\):\s*(\d+)/i;
-        const totalMatch = analysis.match(totalPattern);
-        
-        if (totalMatch && totalMatch[1]) {
-            const score = parseInt(totalMatch[1], 10);
-            if (score >= 0 && score <= 100) {
-                return score;
+        // Debug log the input
+        console.log('Analyzing text for LARP score:', analysis.substring(0, 200));
+
+        // First try to find the scores section
+        const scoresSection = analysis.match(/SCORES:[\s\S]*?(?=\n\n|$)/);
+        if (scoresSection) {
+            console.log('Found scores section:', scoresSection[0]);
+            const larpMatch = scoresSection[0].match(/LARP Score:?\s*(\d+)/i);
+            if (larpMatch && larpMatch[1]) {
+                const score = parseInt(larpMatch[1], 10);
+                if (score >= 0 && score <= 100) {
+                    console.log('Extracted LARP score:', score);
+                    return score;
+                }
             }
         }
 
-        // If not found, try to find it in the breakdown
-        const breakdownPattern = /Total LARP Score:\s*(\d+)/i;
-        const breakdownMatch = analysis.match(breakdownPattern);
-        
-        if (breakdownMatch && breakdownMatch[1]) {
-            const score = parseInt(breakdownMatch[1], 10);
-            if (score >= 0 && score <= 100) {
-                return score;
+        // Fallback patterns if scores section isn't found
+        const patterns = [
+            /LARP Score:?\s*(\d+)/i,
+            /LARP Score \(0-100\):?\s*(\d+)/i,
+            /Overall LARP Score:?\s*(\d+)/i,
+            /Total LARP Score:?\s*(\d+)/i,
+            /LARP:?\s*(\d+)/i
+        ];
+
+        for (const pattern of patterns) {
+            const match = analysis.match(pattern);
+            if (match && match[1]) {
+                const score = parseInt(match[1], 10);
+                if (score >= 0 && score <= 100) {
+                    console.log('Found LARP score using pattern:', pattern, score);
+                    return score;
+                }
             }
         }
 
-        console.log('No valid LARP score found in analysis');
+        // If still no score found, try to calculate from detailed scores
+        const detailedScores = extractDetailedScores(analysis);
+        if (detailedScores) {
+            const total = Object.values(detailedScores).reduce((sum, score) => sum + score, 0);
+            const larpScore = Math.round(total * 1.0); // Scale to 100
+            console.log('Calculated LARP score from detailed scores:', larpScore);
+            return larpScore;
+        }
+
+        console.error('No valid LARP score found in analysis. Analysis begins with:', analysis.substring(0, 500));
         return null;
     } catch (error) {
         console.error('Error extracting LARP score:', error);
@@ -206,18 +240,45 @@ function extractLarpScore(analysis) {
 
 function extractDetailedScores(analysis) {
     try {
-        const pattern = /Code quality.*?\(25 points\):\s*(\d+).*?Project structure.*?\(25 points\):\s*(\d+).*?Implementation.*?\(25 points\):\s*(\d+).*?Documentation.*?\(25 points\):\s*(\d+)/s;
-        const matches = analysis.match(pattern);
+        const scores = {
+            codeQuality: 0,
+            projectStructure: 0,
+            implementation: 0,
+            documentation: 0
+        };
 
-        if (matches) {
-            return {
-                codeQuality: parseInt(matches[1], 10),
-                projectStructure: parseInt(matches[2], 10),
-                implementation: parseInt(matches[3], 10),
-                documentation: parseInt(matches[4], 10)
-            };
+        // Try to find scores section
+        const scoresSection = analysis.match(/SCORES:(.*?)(?=\n\n|$)/s);
+        if (scoresSection) {
+            console.log('Found scores section:', scoresSection[1]); // Debug logging
         }
-        return null;
+
+        const patterns = {
+            codeQuality: /Code Quality:?\s*(\d+)(?:\/25)?/i,
+            projectStructure: /Project Structure:?\s*(\d+)(?:\/25)?/i,
+            implementation: /Implementation:?\s*(\d+)(?:\/25)?/i,
+            documentation: /Documentation:?\s*(\d+)(?:\/25)?/i
+        };
+
+        for (const [key, pattern] of Object.entries(patterns)) {
+            const match = analysis.match(pattern);
+            if (match && match[1]) {
+                const score = parseInt(match[1], 10);
+                if (score >= 0 && score <= 25) {
+                    scores[key] = score;
+                    console.log(`Found ${key} score:`, score); // Debug logging
+                }
+            }
+        }
+
+        // Verify we found at least some scores
+        const hasScores = Object.values(scores).some(score => score > 0);
+        if (!hasScores) {
+            console.log('No valid detailed scores found');
+            return null;
+        }
+
+        return scores;
     } catch (error) {
         console.error('Error extracting detailed scores:', error);
         return null;
