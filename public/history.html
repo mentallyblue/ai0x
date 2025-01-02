@@ -361,6 +361,52 @@
             applyFilters();
         }
 
+        function formatScore(score, type = 'larp') {
+            const scoreValue = Number(score) || 0;
+            let colorClass;
+            
+            if (type === 'larp') {
+                if (scoreValue <= 30) colorClass = 'score-exceptional';
+                else if (scoreValue <= 50) colorClass = 'score-good';
+                else if (scoreValue <= 70) colorClass = 'score-needs-improvement';
+                else colorClass = 'score-critical';
+            } else {
+                if (scoreValue <= 5) colorClass = 'score-exceptional';
+                else if (scoreValue <= 12) colorClass = 'score-good';
+                else if (scoreValue <= 19) colorClass = 'score-needs-improvement';
+                else colorClass = 'score-critical';
+            }
+            
+            return `<span class="${colorClass}">${scoreValue}${type !== 'larp' ? '/25' : ''}</span>`;
+        }
+
+        function createAnalysisCard(analysis) {
+            return `
+                <div class="repo-card">
+                    <h3>${analysis.fullName}</h3>
+                    <div class="score-details">
+                        <div class="score-row">
+                            <span class="score-label">LARP Score</span>
+                            ${formatScore(analysis.analysis?.larpScore, 'larp')}
+                        </div>
+                        <div class="score-row">
+                            <span class="score-label">Code Quality</span>
+                            ${formatScore(analysis.analysis?.detailedScores?.codeQuality, 'detailed')}
+                        </div>
+                        <div class="score-row">
+                            <span class="score-label">Implementation</span>
+                            ${formatScore(analysis.analysis?.detailedScores?.implementation, 'detailed')}
+                        </div>
+                    </div>
+                    <div class="tech-tags">
+                        <span class="tech-tag">${analysis.language || 'Unknown'}</span>
+                        <span class="tech-tag">⭐ ${analysis.stars || 0}</span>
+                        <span class="tech-tag">🔄 ${analysis.forks || 0}</span>
+                    </div>
+                </div>
+            `;
+        }
+
         // Load analyses when page loads
         document.addEventListener('DOMContentLoaded', loadAnalyses);
     </script>

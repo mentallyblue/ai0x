@@ -97,7 +97,6 @@ function displayAnalysis(data) {
     const resultDiv = document.getElementById('result');
     const analysis = data.analysis;
     
-    // Better handling of nested analysis structure
     const detailedScores = analysis?.detailedScores || {
         codeQuality: 0,
         projectStructure: 0,
@@ -106,52 +105,44 @@ function displayAnalysis(data) {
     };
     
     const larpScore = analysis?.larpScore || 0;
-    const analysisText = typeof analysis === 'string' ? analysis : 
-                        analysis?.fullAnalysis || '';
-    
-    // Ensure we have valid numbers for all scores
-    const scores = {
-        codeQuality: Number(detailedScores.codeQuality) || 0,
-        projectStructure: Number(detailedScores.projectStructure) || 0,
-        implementation: Number(detailedScores.implementation) || 0,
-        documentation: Number(detailedScores.documentation) || 0
-    };
-
-    // Add logging for debugging
-    console.log('Analysis data:', {
-        larpScore,
-        detailedScores: scores,
-        analysisText: analysisText.substring(0, 100) + '...' // Log first 100 chars
-    });
-
     const [ratingText] = getRating(larpScore);
+
+    // Create a more minimal AI/Investment section
+    const riskLevel = data.analysis.investmentPotential?.riskLevel;
+    const riskSection = riskLevel ? `
+        <div class="risk-badge ${getRiskClass(riskLevel)}">
+            Risk: ${riskLevel}
+        </div>
+    ` : '';
 
     resultDiv.innerHTML = `
         <div class="analysis-section">
             <div class="score-visualization">
-                <div class="larp-score-display">
+                <div class="larp-score-display ${getScoreClass(larpScore)}">
                     <div class="larp-score-label">LARP SCORE</div>
-                    <div class="larp-score-value">${larpScore}</div>
-                    <div class="larp-score-rating ${ratingText.toLowerCase()}">${ratingText}</div>
+                    <div class="score-header">
+                        <div class="larp-score-value">${larpScore}</div>
+                        ${riskSection}
+                    </div>
+                    <div class="larp-score-rating">${ratingText}</div>
+                    <div class="score-scale">Lower is Better</div>
                 </div>
                 
-                ${Object.entries(scores).map(([key, value]) => `
+                ${Object.entries(detailedScores).map(([key, value]) => `
                     <div class="score-category">
                         <div class="score-header">
-                            <span class="score-name">
-                                ${key.replace(/([A-Z])/g, ' $1').trim()}
-                                <span class="info-tooltip" data-tooltip="${getScoreTooltip(key)}">ⓘ</span>
-                            </span>
-                            <span class="score-value">${value}/25</span>
+                            <span class="score-name">${key.replace(/([A-Z])/g, ' $1').trim()}</span>
+                            <span class="score-value ${getDetailedScoreClass(value)}">${value}/25</span>
                         </div>
                         <div class="score-bar-container">
-                            <div class="score-bar" style="width: ${(value/25)*100}%"></div>
+                            <div class="score-bar ${getDetailedScoreClass(value)}" 
+                                 style="width: ${100 - (value/25)*100}%"></div>
                         </div>
                     </div>
                 `).join('')}
             </div>
 
-            ${analysisText ? marked.parse(analysisText) : '<div class="error">No analysis text available</div>'}
+            ${marked.parse(analysis.fullAnalysis || '')}
         </div>
     `;
 }
@@ -168,10 +159,10 @@ function getScoreTooltip(scoreType) {
 }
 
 function getRating(score) {
-    if (score >= 90) return ['Excellent', 'excellent'];
-    if (score >= 75) return ['Good', 'good'];
-    if (score >= 60) return ['Fair', 'fair'];
-    return ['Poor', 'poor'];
+    if (score <= 30) return ['Exceptional', 'exceptional'];
+    if (score <= 50) return ['Good', 'good'];
+    if (score <= 70) return ['Needs Improvement', 'needs-improvement'];
+    return ['Critical Issues', 'critical'];
 }
 
 function formatLarpScore(score) {
@@ -313,4 +304,42 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Load recent analyses
     loadRecentAnalyses();
-}); 
+});
+
+// Add helper functions for score classes
+function getScoreClass(score) {
+    if (score <= 30) return 'score-exceptional';
+    if (score <= 50) return 'score-good';
+    if (score <= 70) return 'score-needs-improvement';
+    return 'score-critical';
+}
+
+function getDetailedScoreClass(score) {
+    if (score <= 5) return 'score-exceptional';
+    if (score <= 12) return 'score-good';
+    if (score <= 19) return 'score-needs-improvement';
+    return 'score-critical';
+}
+
+// Helper functions for new sections
+function getRiskClass(risk) {
+    if (!risk) return 'risk-unknown';
+    return `risk-${risk.toLowerCase()}`;
+}
+
+function getTransparencyClass(transparency) {
+    if (!transparency) return 'transparency-unknown';
+    return `transparency-${transparency.toLowerCase()}`;
+}
+
+function renderList(title, items) {
+    if (!items || items.length === 0) return '';
+    return `
+        <div class="info-list">
+            <h4>${title}</h4>
+            <ul>
+                ${items.map(item => `<li>${item}</li>`).join('')}
+            </ul>
+        </div>
+    `;
+} 

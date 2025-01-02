@@ -33,7 +33,7 @@ async function analyzeRepo(repoInfo, userApiKey = null) {
         }
 
         // Create the analysis prompt
-        const prompt = `You are analyzing a GitHub repository. Provide a detailed technical assessment in the following format:
+        const prompt = `You are a strict and thorough technical analyzer reviewing a GitHub repository. Focus heavily on identifying AI usage and potential misrepresentation. Provide a detailed technical assessment in the following format:
 
         Repository Details:
         - Name: ${repoDetails.full_name}
@@ -41,95 +41,90 @@ async function analyzeRepo(repoInfo, userApiKey = null) {
         - Stars: ${repoDetails.stargazers_count}
         - Language: ${repoDetails.language}
 
+        # Investment Potential (NOT FINANCIAL ADVICE)
+        - Risk Level: [High/Medium/Low]
+        - Key Strengths:
+        - Red Flags:
+        - Market Opportunity:
+        - Development Activity:
+        - Community Engagement:
+
+        # AI Implementation Analysis
+        ## AI Usage Detection
+        - AI Providers Found: [List of detected AI providers]
+        - Integration Types: [API calls/SDK usage/etc]
+        - Implementation Quality: [Assessment of AI implementation]
+        - Transparency Rating: [High/Medium/Low] (How clearly is AI usage disclosed?)
+        
+        ## Potential Misrepresentation
+        - Claims vs Reality: [Analysis of any claims about AI capabilities]
+        - Marketing Accuracy: [Assessment of how the project presents its AI features]
+        - User Disclosure: [How well users are informed about AI usage]
+
+        # SCORES (Lower is Better)
+        LARP Score: [0-100]
+        🟢 0-30: Exceptional
+        🟡 31-50: Good
+        🟠 51-70: Needs Improvement
+        🔴 71-100: Critical Issues
+
+        Individual Scores (0-25, lower is better):
+        Code Quality: [0-25]
+        🟢 0-5: Exceptional
+        🟡 6-12: Good
+        🟠 13-19: Needs Work
+        🔴 20-25: Critical Issues
+
+        Project Structure: [0-25] (Same scale as above)
+        Implementation: [0-25] (Same scale as above)
+        Documentation: [0-25] (Same scale as above)
+
         ${codeContents.length > 0 ? `Code Analysis:\n${codeContents.map(f => `File: ${f.path}\n${f.content}`).join('\n\n')}` : 'No code files available for analysis.'}
 
-        Please provide your analysis in this EXACT markdown format:
+        Please provide your analysis using this scoring system:
 
-        # SCORES
+        # SCORES (Lower is Better)
         LARP Score: [0-100]
+        🟢 0-30: Exceptional
+        🟡 31-50: Good
+        🟠 51-70: Needs Improvement
+        🔴 71-100: Critical Issues
+
+        Individual Scores (0-25, lower is better):
         Code Quality: [0-25]
-        Project Structure: [0-25]
-        Implementation: [0-25]
-        Documentation: [0-25]
+        🟢 0-5: Exceptional
+        🟡 6-12: Good
+        🟠 13-19: Needs Work
+        🔴 20-25: Critical Issues
 
-        # Detailed Breakdown
+        Project Structure: [0-25] (Same scale as above)
+        Implementation: [0-25] (Same scale as above)
+        Documentation: [0-25] (Same scale as above)
 
-        ## Code Quality ([score]/25)
-        - [Bullet points about code quality]
-        - [Discussion of naming conventions]
-        - [Analysis of code organization]
-        - [Comments on error handling]
+        [Rest of the existing prompt...]`;
 
-        ## Project Structure ([score]/25)
-        - [Analysis of directory organization]
-        - [Discussion of modularity]
-        - [Evaluation of file separation]
-        - [Thoughts on configuration management]
+        const systemPrompt = `You are a strict technical analyzer that must provide detailed, critical scores.
+The scoring system is golf-style - lower scores indicate better quality.
+Be direct and start with the Repository Details section immediately - no introduction needed.
+LARP Score ranges:
+🟢 0-30: Exceptional quality
+🟡 31-50: Good quality
+🟠 51-70: Needs improvement
+🔴 71-100: Critical issues
 
-        ## Implementation ([score]/25)
-        - [Analysis of core functionality]
-        - [Discussion of performance]
-        - [Evaluation of error handling]
-        - [Comments on scalability]
+Individual category scores (0-25):
+🟢 0-5: Exceptional
+🟡 6-12: Good
+🟠 13-19: Needs work
+🔴 20-25: Critical issues
 
-        ## Documentation ([score]/25)
-        - [Analysis of README quality]
-        - [Evaluation of code comments]
-        - [Discussion of API documentation]
-        - [Assessment of setup instructions]
-
-        # Key Findings
-        - [Major strength 1]
-        - [Major strength 2]
-        - [Key concern 1]
-        - [Key concern 2]
-
-        # Technical Deep Dive
-        ## Architecture Overview
-        [Detailed discussion of system architecture]
-
-        ## Code Patterns
-        [Analysis of design patterns and code organization]
-
-        ## Performance Considerations
-        [Discussion of performance implications]
-
-        # Recommendations
-        ## High Priority
-        - [Critical improvement 1]
-        - [Critical improvement 2]
-
-        ## Medium Priority
-        - [Important improvement 1]
-        - [Important improvement 2]
-
-        ## Low Priority
-        - [Nice-to-have improvement 1]
-        - [Nice-to-have improvement 2]
-
-        # Tech Stack Analysis
-        - Primary Language: [language]
-        - Key Dependencies: [list major dependencies]
-        - Development Tools: [list development tools]
-        - Testing Framework: [testing tools used]
-
-        # Security Considerations
-        - [Security consideration 1]
-        - [Security consideration 2]
-        - [Potential vulnerabilities]
-
-        # AI Integration Analysis
-        [If applicable, analysis of AI-related code and patterns]
-
-        # Red Flags
-        - [Major concern 1]
-        - [Major concern 2]
-        - [Potential issues]`;
+Always include actual code snippets from the repository when discussing issues.
+Start your response directly with "Repository Details:" - no introduction.`;
 
         const response = await anthropic.messages.create({
             model: 'claude-3-5-sonnet-20241022',
             max_tokens: 4000,
-            system: "You are a technical analyzer that must provide scores in this exact format: SCORES:\nLARP Score: [number]\nCode Quality: [number]\nProject Structure: [number]\nImplementation: [number]\nDocumentation: [number]",
+            system: systemPrompt,
             messages: [{ 
                 role: 'user', 
                 content: prompt
@@ -139,7 +134,11 @@ async function analyzeRepo(repoInfo, userApiKey = null) {
         // Add debug logging
         console.log('Claude Response:', response.content[0].text.substring(0, 500)); // Log first 500 chars
 
-        const analysis = response.content[0].text;
+        const analysis = response.content[0].text
+            .replace(/^I'll provide.*?:\n+/i, '') // Remove any introduction
+            .replace(/^Here's.*?:\n+/i, '')       // Remove "Here's the analysis" type text
+            .replace(/^Analysis.*?:\n+/i, '')     // Remove "Analysis of" type text
+            .trim();
         
         // Extract structured data
         const larpScore = extractLarpScore(analysis) || 0;
@@ -154,10 +153,20 @@ async function analyzeRepo(repoInfo, userApiKey = null) {
         const analysisResult = {
             fullAnalysis: analysis,
             larpScore,
-            detailedScores,
+            larpScoreColor: getScoreColor(larpScore, true),
+            detailedScores: {
+                ...detailedScores,
+                codeQualityColor: getScoreColor(detailedScores.codeQuality),
+                projectStructureColor: getScoreColor(detailedScores.projectStructure),
+                implementationColor: getScoreColor(detailedScores.implementation),
+                documentationColor: getScoreColor(detailedScores.documentation)
+            },
             techStack: extractTechStack(analysis),
             redFlags: extractRedFlags(analysis),
-            aiIntegrations: codeContents.length > 0 ? detectAIIntegrations(codeContents) : []
+            aiIntegrations: codeContents.length > 0 ? detectAIIntegrations(codeContents) : [],
+            codeReview: extractCodeReview(analysis),
+            investmentPotential: extractInvestmentPotential(analysis),
+            aiAnalysis: extractAIAnalysis(analysis)
         };
 
         // Create or update repository record
@@ -470,6 +479,165 @@ async function generateRepoDescription(codeContents) {
         return response.content[0].text.trim();
     } catch (error) {
         console.error('Error generating description:', error);
+        return null;
+    }
+}
+
+function extractCodeReview(analysis) {
+    try {
+        const codeReview = {
+            logicFlow: [],
+            processArchitecture: [],
+            codeOrganization: [],
+            criticalPath: []
+        };
+
+        // Extract Logic Flow points
+        const logicFlowSection = analysis.match(/## Logic Flow\n([\s\S]*?)(?=\n##|$)/);
+        if (logicFlowSection) {
+            codeReview.logicFlow = logicFlowSection[1]
+                .split('\n')
+                .filter(line => line.trim().startsWith('-'))
+                .map(line => line.trim().replace(/^- /, ''));
+        }
+
+        // Extract Process Architecture points
+        const processSection = analysis.match(/## Process Architecture\n([\s\S]*?)(?=\n##|$)/);
+        if (processSection) {
+            codeReview.processArchitecture = processSection[1]
+                .split('\n')
+                .filter(line => line.trim().startsWith('-'))
+                .map(line => line.trim().replace(/^- /, ''));
+        }
+
+        // Extract Code Organization points
+        const organizationSection = analysis.match(/## Code Organization Review\n([\s\S]*?)(?=\n##|$)/);
+        if (organizationSection) {
+            codeReview.codeOrganization = organizationSection[1]
+                .split('\n')
+                .filter(line => line.trim().startsWith('-'))
+                .map(line => line.trim().replace(/^- /, ''));
+        }
+
+        // Extract Critical Path points
+        const criticalSection = analysis.match(/## Critical Path Analysis\n([\s\S]*?)(?=\n##|$)/);
+        if (criticalSection) {
+            codeReview.criticalPath = criticalSection[1]
+                .split('\n')
+                .filter(line => line.trim().startsWith('-'))
+                .map(line => line.trim().replace(/^- /, ''));
+        }
+
+        return codeReview;
+    } catch (error) {
+        console.error('Error extracting code review:', error);
+        return null;
+    }
+}
+
+// Add a function to get score color coding
+function getScoreColor(score, isLarpScore = false) {
+    if (isLarpScore) {
+        if (score <= 30) return '🟢';
+        if (score <= 50) return '🟡';
+        if (score <= 70) return '🟠';
+        return '🔴';
+    } else {
+        if (score <= 5) return '🟢';
+        if (score <= 12) return '🟡';
+        if (score <= 19) return '🟠';
+        return '🔴';
+    }
+}
+
+// Add function to extract investment potential
+function extractInvestmentPotential(analysis) {
+    try {
+        const investmentInfo = {
+            riskLevel: null,
+            keyStrengths: [],
+            redFlags: [],
+            marketOpportunity: null,
+            developmentActivity: null,
+            communityEngagement: null
+        };
+
+        const section = analysis.match(/# Investment Potential.*?(?=\n#)/s);
+        if (section) {
+            const text = section[0];
+            
+            // Extract risk level
+            const riskMatch = text.match(/Risk Level:\s*([High|Medium|Low]+)/);
+            if (riskMatch) investmentInfo.riskLevel = riskMatch[1];
+
+            // Extract lists
+            const strengthsMatch = text.match(/Key Strengths:(.*?)(?=-|$)/s);
+            if (strengthsMatch) {
+                investmentInfo.keyStrengths = strengthsMatch[1]
+                    .split('\n')
+                    .filter(line => line.trim().startsWith('-'))
+                    .map(line => line.trim().replace(/^- /, ''));
+            }
+
+            const redFlagsMatch = text.match(/Red Flags:(.*?)(?=-|$)/s);
+            if (redFlagsMatch) {
+                investmentInfo.redFlags = redFlagsMatch[1]
+                    .split('\n')
+                    .filter(line => line.trim().startsWith('-'))
+                    .map(line => line.trim().replace(/^- /, ''));
+            }
+        }
+
+        return investmentInfo;
+    } catch (error) {
+        console.error('Error extracting investment potential:', error);
+        return null;
+    }
+}
+
+// Enhance AI detection function
+function extractAIAnalysis(analysis) {
+    try {
+        const aiAnalysis = {
+            providers: [],
+            integrationTypes: [],
+            implementationQuality: null,
+            transparencyRating: null,
+            claimsVsReality: [],
+            marketingAccuracy: null,
+            userDisclosure: null
+        };
+
+        const section = analysis.match(/# AI Implementation Analysis.*?(?=\n#)/s);
+        if (section) {
+            const text = section[0];
+
+            // Extract providers
+            const providersMatch = text.match(/AI Providers Found:(.*?)(?=\n[A-Z])/s);
+            if (providersMatch) {
+                aiAnalysis.providers = providersMatch[1]
+                    .split('\n')
+                    .filter(line => line.trim().startsWith('-'))
+                    .map(line => line.trim().replace(/^- /, ''));
+            }
+
+            // Extract transparency rating
+            const transparencyMatch = text.match(/Transparency Rating:\s*([High|Medium|Low]+)/);
+            if (transparencyMatch) aiAnalysis.transparencyRating = transparencyMatch[1];
+
+            // Extract claims vs reality
+            const claimsMatch = text.match(/Claims vs Reality:(.*?)(?=\n[A-Z])/s);
+            if (claimsMatch) {
+                aiAnalysis.claimsVsReality = claimsMatch[1]
+                    .split('\n')
+                    .filter(line => line.trim().startsWith('-'))
+                    .map(line => line.trim().replace(/^- /, ''));
+            }
+        }
+
+        return aiAnalysis;
+    } catch (error) {
+        console.error('Error extracting AI analysis:', error);
         return null;
     }
 }

@@ -967,4 +967,179 @@ button::after {
 .container {
     min-height: calc(100vh - 80px); /* Adjust based on header height */
     padding-bottom: 40px; /* Add some bottom padding */
+}
+
+/* Add new score-related classes */
+.score-scale {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 5px;
+}
+
+.score-exceptional {
+    color: #22c55e !important;
+    background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(34, 197, 94, 0.2)) !important;
+}
+
+.score-good {
+    color: #eab308 !important;
+    background: linear-gradient(135deg, rgba(234, 179, 8, 0.1), rgba(234, 179, 8, 0.2)) !important;
+}
+
+.score-needs-improvement {
+    color: #f97316 !important;
+    background: linear-gradient(135deg, rgba(249, 115, 22, 0.1), rgba(249, 115, 22, 0.2)) !important;
+}
+
+.score-critical {
+    color: #ef4444 !important;
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(239, 68, 68, 0.2)) !important;
+}
+
+/* Update score bar styles */
+.score-bar {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 1.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.score-bar-container {
+    height: 8px;
+    background: var(--bg-primary);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 8px;
+}
+
+/* Update larp score display */
+.larp-score-display {
+    text-align: center;
+    margin-bottom: 40px;
+    padding: 30px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    transition: all 0.3s ease;
+}
+
+.larp-score-value {
+    font-size: 48px;
+    font-weight: bold;
+}
+
+.larp-score-rating {
+    font-size: 16px;
+    font-weight: 500;
+    margin-top: 5px;
+}
+
+/* Add styles for new AI and investment sections */
+.ai-analysis {
+    margin-bottom: 40px;
+    background: var(--bg-secondary);
+    padding: 30px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+}
+
+.warning-box {
+    background: rgba(255, 215, 0, 0.1);
+    border: 1px solid var(--accent);
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    color: var(--accent);
+    text-align: center;
+    font-weight: bold;
+}
+
+.risk-level, .transparency-rating {
+    display: inline-block;
+    padding: 8px 16px;
+    border-radius: 20px;
+    margin-bottom: 20px;
+    font-weight: bold;
+}
+
+.risk-high { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+.risk-medium { background: rgba(234, 179, 8, 0.2); color: #eab308; }
+.risk-low { background: rgba(34, 197, 94, 0.2); color: #22c55e; }
+
+.transparency-high { background: rgba(34, 197, 94, 0.2); color: #22c55e; }
+.transparency-medium { background: rgba(234, 179, 8, 0.2); color: #eab308; }
+.transparency-low { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+
+.info-list {
+    margin-bottom: 20px;
+}
+
+.info-list h4 {
+    color: var(--accent);
+    margin-bottom: 10px;
+}
+
+.info-list ul {
+    list-style: none;
+}
+
+.info-list li {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.info-list li:last-child {
+    border-bottom: none;
+}
+
+/* Update styles for the new minimal layout */
+.score-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+    margin: 10px 0;
+}
+
+.risk-badge {
+    font-size: 14px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-weight: 500;
+}
+
+.risk-high {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+}
+
+.risk-medium {
+    background: rgba(234, 179, 8, 0.15);
+    color: #eab308;
+}
+
+.risk-low {
+    background: rgba(34, 197, 94, 0.15);
+    color: #22c55e;
+}
+
+/* Update LARP score display */
+.larp-score-display {
+    text-align: center;
+    margin-bottom: 40px;
+    padding: 30px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    transition: all 0.3s ease;
+}
+
+.larp-score-value {
+    font-size: 48px;
+    font-weight: bold;
+}
+
+/* Remove unused styles */
+.ai-analysis,
+.warning-box,
+.transparency-rating,
+.info-list {
+    display: none;
 } 
