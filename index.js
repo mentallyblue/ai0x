@@ -87,6 +87,18 @@ app.post('/api/cleanup', async (req, res) => {
     }
 });
 
+// Add this new endpoint to get all analyses
+app.get('/api/analyses', async (req, res) => {
+    try {
+        const analyses = await Repository.find()
+            .sort({ lastAnalyzed: -1 })
+            .select('fullName description language stars forks lastAnalyzed analysis');
+        res.json(analyses);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch analyses' });
+    }
+});
+
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 }); 

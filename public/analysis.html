@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI0x | Repository Analysis</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap">
+    <link rel="stylesheet" href="/css/styles.css">
+    <script src="/js/main.js"></script>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <a href="/" class="logo">AI0x</a>
+            <nav class="nav-links">
+                <a href="/" class="nav-link">Analyze</a>
+                <a href="/history.html" class="nav-link">History</a>
+                <div class="social-links">
+                    <a href="https://twitter.com/ai0x_tool" target="_blank" class="social-link" title="Follow us on X">
+                        <svg width="20" height="20" viewBox="0 0 24 24">
+                            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                        </svg>
+                    </a>
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <div class="container">
+        <div id="result">
+            <div class="loading">Loading analysis...</div>
+        </div>
+    </div>
+
+    <script>
+        // Configure marked options
+        marked.setOptions({
+            breaks: true,
+            gfm: true,
+            headerIds: true,
+            headerPrefix: 'section-'
+        });
+
+        document.addEventListener('DOMContentLoaded', async function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const repoFullName = urlParams.get('repo');
+            
+            if (!repoFullName) {
+                document.getElementById('result').innerHTML = '<div class="error">No repository specified</div>';
+                return;
+            }
+
+            try {
+                const [owner, repo] = repoFullName.split('/');
+                const response = await fetch(`/api/repository/${owner}/${repo}`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    document.title = `AI0x | ${repoFullName} Analysis`;
+                    displayAnalysis({
+                        analysis: data.analysis
+                    });
+                } else {
+                    document.getElementById('result').innerHTML = `
+                        <div class="error">
+                            Error loading analysis: ${data.error}
+                            <br><br>
+                            <a href="/history.html" class="button">Back to History</a>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Failed to load analysis:', error);
+                document.getElementById('result').innerHTML = `
+                    <div class="error">
+                        Failed to load analysis
+                        <br><br>
+                        <a href="/history.html" class="button">Back to History</a>
+                    </div>
+                `;
+            }
+        });
+    </script>
+</body>
+</html> 
