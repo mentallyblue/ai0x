@@ -128,18 +128,20 @@ function displayAnalysis(data) {
                     <div class="score-scale">Lower is Better</div>
                 </div>
                 
-                ${Object.entries(detailedScores).map(([key, value]) => `
-                    <div class="score-category">
-                        <div class="score-header">
-                            <span class="score-name">${key.replace(/([A-Z])/g, ' $1').trim()}</span>
-                            <span class="score-value ${getDetailedScoreClass(value)}">${value}/25</span>
+                ${Object.entries(detailedScores)
+                    .filter(([key]) => !key.includes('Color')) // Filter out color fields
+                    .map(([key, value]) => `
+                        <div class="score-category">
+                            <div class="score-header">
+                                <span class="score-name">${key.replace(/([A-Z])/g, ' $1').trim()}</span>
+                                <span class="score-value ${getDetailedScoreClass(value)}">${value}/25</span>
+                            </div>
+                            <div class="score-bar-container">
+                                <div class="score-bar ${getDetailedScoreClass(value)}" 
+                                     style="width: ${100 - (value/25)*100}%"></div>
+                            </div>
                         </div>
-                        <div class="score-bar-container">
-                            <div class="score-bar ${getDetailedScoreClass(value)}" 
-                                 style="width: ${100 - (value/25)*100}%"></div>
-                        </div>
-                    </div>
-                `).join('')}
+                    `).join('')}
             </div>
 
             ${marked.parse(analysis.fullAnalysis || '')}
@@ -342,4 +344,97 @@ function renderList(title, items) {
             </ul>
         </div>
     `;
+}
+
+function displayRecentAnalyses(analyses) {
+    const recentDiv = document.getElementById('recentAnalyses');
+    if (!recentDiv || !analyses.length) return;
+
+    recentDiv.innerHTML = `
+        <h2>Recent Analyses</h2>
+        <div class="recent-grid">
+            ${analyses.map(analysis => `
+                <div class="recent-card ${getScoreClass(analysis.analysis?.larpScore)}">
+                    <div class="recent-header">
+                        <h3>${analysis.fullName}</h3>
+                        <span class="recent-score">${analysis.analysis?.larpScore || 'N/A'}</span>
+                    </div>
+                    <div class="recent-description">
+                        ${analysis.description || 'No description available'}
+                    </div>
+                    <div class="recent-summary">
+                        ${analysis.summary || 'Analysis summary not available'}
+                    </div>
+                    <div class="recent-meta">
+                        <span class="tech-tag">${analysis.language || 'Unknown'}</span>
+                        <span class="tech-tag">⭐ ${analysis.stars || 0}</span>
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    `;
+}
+
+// Update the score range constants
+const SCORE_RANGES = {
+    '0-30': 'Exceptional',
+    '31-50': 'Good',
+    '51-70': 'Needs Improvement',
+    '71-100': 'Critical'
+};
+
+// Update sorting function
+function sortAnalyses(analyses, sortBy) {
+    return analyses.sort((a, b) => {
+        switch (sortBy) {
+            case 'date':
+                return new Date(b.lastAnalyzed) - new Date(a.lastAnalyzed);
+            case 'score':
+                // Lower score is better, so reverse the comparison
+                return (a.analysis?.larpScore || 0) - (b.analysis?.larpScore || 0);
+            case 'stars':
+                return (b.stars || 0) - (a.stars || 0);
+            default:
+                return 0;
+        }
+    });
+}
+
+// Update displayAnalyses function to show cards properly
+function displayAnalyses(analyses) {
+    const grid = document.getElementById('analysisGrid');
+    const start = (currentPage - 1) * PAGE_SIZE;
+    const end = start + PAGE_SIZE;
+    const pageAnalyses = analyses.slice(start, end);
+
+    grid.innerHTML = pageAnalyses.map(analysis => `
+        <div class="analysis-card ${getScoreClass(analysis.analysis?.larpScore)}" 
+             onclick="window.location.href='/analysis.html?repo=${analysis.fullName}'">
+            <div class="recent-header">
+                <h3 class="repo-name">${analysis.fullName}</h3>
+                <span class="recent-score">${analysis.analysis?.larpScore || 'N/A'}</span>
+            </div>
+            <div class="recent-description">
+                ${analysis.description || 'No description available'}
+            </div>
+            <div class="recent-summary">
+                ${analysis.summary || 'Analysis summary not available'}
+            </div>
+            <div class="score-summary">
+                <div class="score-row">
+                    <span class="score-label">Code Quality</span>
+                    <span class="score-value">${analysis.analysis?.detailedScores?.codeQuality || 'N/A'}/25</span>
+                </div>
+                <div class="score-row">
+                    <span class="score-label">Implementation</span>
+                    <span class="score-value">${analysis.analysis?.detailedScores?.implementation || 'N/A'}/25</span>
+                </div>
+            </div>
+            <div class="tech-tags">
+                <span class="tech-tag">${analysis.language || 'Unknown'}</span>
+                <span class="tech-tag">⭐ ${analysis.stars || 0}</span>
+                <span class="tech-tag">🔄 ${analysis.forks || 0}</span>
+            </div>
+        </div>
+    `).join('');
 } 

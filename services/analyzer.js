@@ -105,7 +105,6 @@ async function analyzeRepo(repoInfo, userApiKey = null) {
 
         const systemPrompt = `You are a strict technical analyzer that must provide detailed, critical scores.
 The scoring system is golf-style - lower scores indicate better quality.
-Be direct and start with the Repository Details section immediately - no introduction needed.
 LARP Score ranges:
 🟢 0-30: Exceptional quality
 🟡 31-50: Good quality
@@ -119,7 +118,7 @@ Individual category scores (0-25):
 🔴 20-25: Critical issues
 
 Always include actual code snippets from the repository when discussing issues.
-Start your response directly with "Repository Details:" - no introduction.`;
+`;
 
         const response = await anthropic.messages.create({
             model: 'claude-3-5-sonnet-20241022',
@@ -134,11 +133,8 @@ Start your response directly with "Repository Details:" - no introduction.`;
         // Add debug logging
         console.log('Claude Response:', response.content[0].text.substring(0, 500)); // Log first 500 chars
 
-        const analysis = response.content[0].text
-            .replace(/^I'll provide.*?:\n+/i, '') // Remove any introduction
-            .replace(/^Here's.*?:\n+/i, '')       // Remove "Here's the analysis" type text
-            .replace(/^Analysis.*?:\n+/i, '')     // Remove "Analysis of" type text
-            .trim();
+        const analysis = response.content[0].text;
+        const summary = await generateAnalysisSummary(analysis);
         
         // Extract structured data
         const larpScore = extractLarpScore(analysis) || 0;
@@ -153,20 +149,19 @@ Start your response directly with "Repository Details:" - no introduction.`;
         const analysisResult = {
             fullAnalysis: analysis,
             larpScore,
-            larpScoreColor: getScoreColor(larpScore, true),
             detailedScores: {
-                ...detailedScores,
-                codeQualityColor: getScoreColor(detailedScores.codeQuality),
-                projectStructureColor: getScoreColor(detailedScores.projectStructure),
-                implementationColor: getScoreColor(detailedScores.implementation),
-                documentationColor: getScoreColor(detailedScores.documentation)
+                codeQuality: detailedScores.codeQuality,
+                projectStructure: detailedScores.projectStructure,
+                implementation: detailedScores.implementation,
+                documentation: detailedScores.documentation
             },
             techStack: extractTechStack(analysis),
             redFlags: extractRedFlags(analysis),
             aiIntegrations: codeContents.length > 0 ? detectAIIntegrations(codeContents) : [],
             codeReview: extractCodeReview(analysis),
             investmentPotential: extractInvestmentPotential(analysis),
-            aiAnalysis: extractAIAnalysis(analysis)
+            aiAnalysis: extractAIAnalysis(analysis),
+            summary: summary
         };
 
         // Create or update repository record
@@ -176,10 +171,12 @@ Start your response directly with "Repository Details:" - no introduction.`;
                 owner: repoInfo.owner,
                 repoName: repoInfo.repo,
                 fullName: `${repoInfo.owner}/${repoInfo.repo}`,
+                description: description,
                 analysis: analysisResult,
                 lastAnalyzed: Date.now(),
                 language: repoDetails.language,
-                stars: repoDetails.stargazers_count
+                stars: repoDetails.stargazers_count,
+                summary: summary
             },
             { upsert: true, new: true }
         );
@@ -462,24 +459,23 @@ function detectDataProcessing(content) {
 // Add this function to generate a description
 async function generateRepoDescription(codeContents) {
     try {
-        const descriptionPrompt = `Based on the following code files from a GitHub repository, generate a clear, concise 2-3 sentence description of what this project does. Focus on the main purpose and key features. Be specific but brief.
+        const prompt = `Analyze this repository and generate a clear, concise 1-2 sentence description of what it does:
 
-        Code files:
         ${codeContents.map(f => `File: ${f.path}\n${f.content}`).join('\n\n')}`;
 
         const response = await anthropic.messages.create({
-            model: 'claude-3-opus-20240229',
-            max_tokens: 200,
+            model: 'claude-3-5-sonnet-20241022',
+            max_tokens: 150,
             messages: [{ 
                 role: 'user', 
-                content: descriptionPrompt
+                content: prompt
             }]
         });
 
         return response.content[0].text.trim();
     } catch (error) {
         console.error('Error generating description:', error);
-        return null;
+        return 'No description available';
     }
 }
 
@@ -638,6 +634,29 @@ function extractAIAnalysis(analysis) {
         return aiAnalysis;
     } catch (error) {
         console.error('Error extracting AI analysis:', error);
+        return null;
+    }
+}
+
+// Add function to generate summary using Claude
+async function generateAnalysisSummary(analysis) {
+    try {
+        const prompt = `Summarize this technical analysis in 1-3 clear, concise sentences, focusing on what the project does and key findings:
+
+        ${analysis}`;
+
+        const response = await anthropic.messages.create({
+            model: 'claude-3-5-sonnet-20241022',
+            max_tokens: 150,
+            messages: [{ 
+                role: 'user', 
+                content: prompt
+            }]
+        });
+
+        return response.content[0].text.trim();
+    } catch (error) {
+        console.error('Error generating summary:', error);
         return null;
     }
 }

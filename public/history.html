@@ -124,6 +124,238 @@
             text-overflow: ellipsis;
         }
     </style>
+    <script>
+        let allAnalyses = [];
+        const PAGE_SIZE = 12;
+        let currentPage = 1;
+
+        // Add the sorting function
+        function sortAnalyses(analyses, sortBy) {
+            return analyses.sort((a, b) => {
+                switch (sortBy) {
+                    case 'date':
+                        return new Date(b.lastAnalyzed) - new Date(a.lastAnalyzed);
+                    case 'score':
+                        // Lower score is better, so reverse the comparison
+                        return (a.analysis?.larpScore || 0) - (b.analysis?.larpScore || 0);
+                    case 'stars':
+                        return (b.stars || 0) - (a.stars || 0);
+                    default:
+                        return 0;
+                }
+            });
+        }
+
+        // Add score class helper function
+        function getScoreClass(score) {
+            if (!score) return '';
+            if (score <= 30) return 'score-exceptional';
+            if (score <= 50) return 'score-good';
+            if (score <= 70) return 'score-needs-improvement';
+            return 'score-critical';
+        }
+
+        async function loadAnalyses() {
+            try {
+                const response = await fetch('/api/analyses');
+                allAnalyses = await response.json();
+                updateStats();
+                populateLanguageFilter();
+                applyFilters();
+            } catch (error) {
+                console.error('Failed to load analyses:', error);
+                document.getElementById('analysisGrid').innerHTML = `
+                    <div class="error-message">
+                        Failed to load analyses. Please try refreshing the page.
+                    </div>
+                `;
+            }
+        }
+
+        function updateStats() {
+            const totalAnalyses = allAnalyses.length;
+            const avgScore = Math.round(
+                allAnalyses.reduce((sum, a) => sum + (a.analysis?.larpScore || 0), 0) / totalAnalyses
+            );
+            const languages = allAnalyses.reduce((acc, a) => {
+                if (a.language) acc[a.language] = (acc[a.language] || 0) + 1;
+                return acc;
+            }, {});
+            const topLanguage = Object.entries(languages)
+                .sort((a, b) => b[1] - a[1])[0]?.[0] || '-';
+
+            document.getElementById('totalAnalyses').textContent = totalAnalyses;
+            document.getElementById('avgScore').textContent = avgScore;
+            document.getElementById('topLanguage').textContent = topLanguage;
+        }
+
+        function populateLanguageFilter() {
+            const languages = new Set(allAnalyses.map(a => a.language).filter(Boolean));
+            const select = document.getElementById('languageSelect');
+            languages.forEach(lang => {
+                const option = document.createElement('option');
+                option.value = lang;
+                option.textContent = lang;
+                select.appendChild(option);
+            });
+        }
+
+        function applyFilters() {
+            const sortBy = document.getElementById('sortSelect').value;
+            const language = document.getElementById('languageSelect').value;
+            const scoreRange = document.getElementById('scoreSelect').value;
+            
+            let filtered = [...allAnalyses];
+
+            // Apply language filter
+            if (language !== 'all') {
+                filtered = filtered.filter(a => a.language === language);
+            }
+
+            // Apply score filter
+            if (scoreRange !== 'all') {
+                const [min, max] = scoreRange.split('-').map(Number);
+                filtered = filtered.filter(a => {
+                    const score = a.analysis?.larpScore || 0;
+                    return score >= min && score <= max;
+                });
+            }
+
+            // Apply sorting
+            filtered = sortAnalyses(filtered, sortBy);
+
+            displayAnalyses(filtered);
+            updatePagination(filtered.length);
+        }
+
+        function displayAnalyses(analyses) {
+            const grid = document.getElementById('analysisGrid');
+            const start = (currentPage - 1) * PAGE_SIZE;
+            const end = start + PAGE_SIZE;
+            const pageAnalyses = analyses.slice(start, end);
+
+            grid.innerHTML = pageAnalyses.map(analysis => {
+                const repoName = analysis.fullName;
+                
+                return `
+                    <div class="analysis-card" onclick="window.location.href='/analysis.html?repo=${analysis.fullName}'">
+                        <div class="repo-header">
+                            <div class="repo-name-section">
+                                <span class="repo-name" title="${repoName}">${repoName}</span>
+                                <a href="https://github.com/${analysis.fullName}" 
+                                   class="github-link" 
+                                   onclick="event.stopPropagation()"
+                                   target="_blank"
+                                   title="View on GitHub">
+                                    <svg height="16" width="16" viewBox="0 0 16 16" fill="currentColor">
+                                        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+                                    </svg>
+                                </a>
+                            </div>
+                        </div>
+                        <div class="repo-description">
+                            ${analysis.description || 'No description available'}
+                        </div>
+                        <div class="analysis-date">Analyzed: ${new Date(analysis.lastAnalyzed).toLocaleDateString()}</div>
+                        <div class="score-summary">
+                            <div class="score-row">
+                                <span class="score-label">LARP Score</span>
+                                <span class="score-value">${analysis.analysis?.larpScore || 'N/A'}</span>
+                            </div>
+                            <div class="score-row">
+                                <span class="score-label">Code Quality</span>
+                                <span class="score-value">${analysis.analysis?.detailedScores?.codeQuality || 'N/A'}/25</span>
+                            </div>
+                            <div class="score-row">
+                                <span class="score-label">Implementation</span>
+                                <span class="score-value">${analysis.analysis?.detailedScores?.implementation || 'N/A'}/25</span>
+                            </div>
+                        </div>
+                        <div class="tech-tags">
+                            <span class="tech-tag">${analysis.language || 'Unknown'}</span>
+                            <span class="tech-tag">⭐ ${analysis.stars || 0}</span>
+                            <span class="tech-tag">🔄 ${analysis.forks || 0}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function updatePagination(totalItems) {
+            const totalPages = Math.ceil(totalItems / PAGE_SIZE);
+            const pagination = document.getElementById('pagination');
+            
+            let html = '';
+            if (currentPage > 1) {
+                html += `<button class="page-button" onclick="changePage(${currentPage - 1})">Previous</button>`;
+            }
+            
+            for (let i = 1; i <= totalPages; i++) {
+                html += `<button class="page-button ${i === currentPage ? 'active' : ''}" 
+                        onclick="changePage(${i})">${i}</button>`;
+            }
+            
+            if (currentPage < totalPages) {
+                html += `<button class="page-button" onclick="changePage(${currentPage + 1})">Next</button>`;
+            }
+            
+            pagination.innerHTML = html;
+        }
+
+        function changePage(page) {
+            currentPage = page;
+            applyFilters();
+        }
+
+        function formatScore(score, type = 'larp') {
+            const scoreValue = Number(score) || 0;
+            let colorClass;
+            
+            if (type === 'larp') {
+                if (scoreValue <= 30) colorClass = 'score-exceptional';
+                else if (scoreValue <= 50) colorClass = 'score-good';
+                else if (scoreValue <= 70) colorClass = 'score-needs-improvement';
+                else colorClass = 'score-critical';
+            } else {
+                if (scoreValue <= 5) colorClass = 'score-exceptional';
+                else if (scoreValue <= 12) colorClass = 'score-good';
+                else if (scoreValue <= 19) colorClass = 'score-needs-improvement';
+                else colorClass = 'score-critical';
+            }
+            
+            return `<span class="${colorClass}">${scoreValue}${type !== 'larp' ? '/25' : ''}</span>`;
+        }
+
+        function createAnalysisCard(analysis) {
+            return `
+                <div class="repo-card">
+                    <h3>${analysis.fullName}</h3>
+                    <div class="score-details">
+                        <div class="score-row">
+                            <span class="score-label">LARP Score</span>
+                            ${formatScore(analysis.analysis?.larpScore, 'larp')}
+                        </div>
+                        <div class="score-row">
+                            <span class="score-label">Code Quality</span>
+                            ${formatScore(analysis.analysis?.detailedScores?.codeQuality, 'detailed')}
+                        </div>
+                        <div class="score-row">
+                            <span class="score-label">Implementation</span>
+                            ${formatScore(analysis.analysis?.detailedScores?.implementation, 'detailed')}
+                        </div>
+                    </div>
+                    <div class="tech-tags">
+                        <span class="tech-tag">${analysis.language || 'Unknown'}</span>
+                        <span class="tech-tag">⭐ ${analysis.stars || 0}</span>
+                        <span class="tech-tag">🔄 ${analysis.forks || 0}</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Load analyses when page loads
+        document.addEventListener('DOMContentLoaded', loadAnalyses);
+    </script>
 </head>
 <body>
     <header class="header">
@@ -164,27 +396,27 @@
 
         <div class="filters">
             <div class="filter-group">
-                <span class="filter-label">Sort by:</span>
-                <select id="sortFilter" onchange="applyFilters()">
+                <label class="filter-label">Sort by:</label>
+                <select id="sortSelect" class="filter-select" onchange="applyFilters()">
                     <option value="date">Date</option>
-                    <option value="score">LARP Score</option>
-                    <option value="stars">Stars</option>
+                    <option value="score">Best Score</option>
+                    <option value="stars">Most Stars</option>
                 </select>
             </div>
             <div class="filter-group">
-                <span class="filter-label">Language:</span>
-                <select id="languageFilter" onchange="applyFilters()">
+                <label class="filter-label">Language:</label>
+                <select id="languageSelect" class="filter-select" onchange="applyFilters()">
                     <option value="all">All</option>
                 </select>
             </div>
             <div class="filter-group">
-                <span class="filter-label">Score Range:</span>
-                <select id="scoreFilter" onchange="applyFilters()">
-                    <option value="all">All</option>
-                    <option value="90-100">90-100 (Excellent)</option>
-                    <option value="70-89">70-89 (Good)</option>
-                    <option value="50-69">50-69 (Fair)</option>
-                    <option value="0-49">0-49 (Poor)</option>
+                <label class="filter-label">Score Range:</label>
+                <select id="scoreSelect" class="filter-select" onchange="applyFilters()">
+                    <option value="all">All Scores</option>
+                    <option value="0-30">Exceptional (0-30)</option>
+                    <option value="31-50">Good (31-50)</option>
+                    <option value="51-70">Needs Improvement (51-70)</option>
+                    <option value="71-100">Critical (71-100)</option>
                 </select>
             </div>
         </div>
@@ -236,7 +468,7 @@
 
         function populateLanguageFilter() {
             const languages = new Set(allAnalyses.map(a => a.language).filter(Boolean));
-            const select = document.getElementById('languageFilter');
+            const select = document.getElementById('languageSelect');
             languages.forEach(lang => {
                 const option = document.createElement('option');
                 option.value = lang;
@@ -246,10 +478,10 @@
         }
 
         function applyFilters() {
-            const sortBy = document.getElementById('sortFilter').value;
-            const language = document.getElementById('languageFilter').value;
-            const scoreRange = document.getElementById('scoreFilter').value;
-
+            const sortBy = document.getElementById('sortSelect').value;
+            const language = document.getElementById('languageSelect').value;
+            const scoreRange = document.getElementById('scoreSelect').value;
+            
             let filtered = [...allAnalyses];
 
             // Apply language filter
@@ -267,16 +499,7 @@
             }
 
             // Apply sorting
-            filtered.sort((a, b) => {
-                switch (sortBy) {
-                    case 'date':
-                        return new Date(b.lastAnalyzed) - new Date(a.lastAnalyzed);
-                    case 'score':
-                        return (b.analysis?.larpScore || 0) - (a.analysis?.larpScore || 0);
-                    case 'stars':
-                        return (b.stars || 0) - (a.stars || 0);
-                }
-            });
+            filtered = sortAnalyses(filtered, sortBy);
 
             displayAnalyses(filtered);
             updatePagination(filtered.length);

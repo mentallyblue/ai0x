@@ -27,7 +27,11 @@ const repositorySchema = new mongoose.Schema({
         date: { type: Date, default: Date.now },
         larpScore: Number,
         apiKey: String
-    }]
+    }],
+    summary: {
+        type: String,
+        default: null
+    }
 }, {
     timestamps: true
 });
