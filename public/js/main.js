@@ -106,25 +106,39 @@ function displayAnalysis(data) {
                 </div>
                 
                 <div class="score-grid">
-                    ${createScoreCard('Code Quality', analysis.detailedScores?.codeQuality)}
-                    ${createScoreCard('Project Structure', analysis.detailedScores?.projectStructure)}
-                    ${createScoreCard('Implementation', analysis.detailedScores?.implementation)}
-                    ${createScoreCard('Documentation', analysis.detailedScores?.documentation)}
+                    ${createDetailedScoreCard('Code Quality', analysis.detailedScores?.codeQuality)}
+                    ${createDetailedScoreCard('Project Structure', analysis.detailedScores?.projectStructure)}
+                    ${createDetailedScoreCard('Implementation', analysis.detailedScores?.implementation)}
+                    ${createDetailedScoreCard('Documentation', analysis.detailedScores?.documentation)}
                 </div>
             </div>
 
-            <div class="analysis-text">
-                ${marked.parse(analysis.fullAnalysis || 'No analysis available')}
+            <div class="analysis-content">
+                ${marked.parse(formatAnalysisContent(analysis.fullAnalysis || 'No analysis available'))}
             </div>
         </div>
     `;
 }
 
-function createScoreCard(title, score) {
+function formatAnalysisContent(content) {
+    // Add proper spacing and formatting for bullet points
+    return content
+        .replace(/•/g, '→')  // Replace bullet points with arrows
+        .replace(/\n\n/g, '\n\n\n') // Add extra spacing between sections
+        .replace(/#{1,6} /g, match => `\n\n${match}`); // Add spacing before headers
+}
+
+function createDetailedScoreCard(title, score) {
+    const rating = getRating(score || 0);
     return `
-        <div class="score-card ${getDetailedScoreClass(score || 0)}">
-            <span class="score-title">${title}</span>
-            <span class="score-number">${score || 0}/25</span>
+        <div class="score-card ${rating[1]}">
+            <div class="score-header">
+                <span class="score-title">${title}</span>
+                <span class="score-number">${score || 0}/25</span>
+            </div>
+            <div class="score-bar">
+                <div class="score-fill" style="width: ${(score || 0) * 4}%"></div>
+            </div>
         </div>
     `;
 }

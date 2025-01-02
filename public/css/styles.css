@@ -1277,65 +1277,122 @@ button::after {
 }
 
 .analysis-result {
-    max-width: 1000px;
+    max-width: 1200px;
     margin: 0 auto;
     padding: 20px;
+    font-family: 'JetBrains Mono', monospace;
 }
 
 .score-overview {
+    margin-bottom: 40px;
+    background: var(--bg-secondary);
+    padding: 30px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+}
+
+.analysis-content {
+    background: var(--bg-secondary);
+    padding: 30px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    line-height: 1.6;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+}
+
+.analysis-content pre {
+    background: var(--bg-primary);
+    padding: 15px;
+    border-radius: 8px;
+    overflow-x: auto;
+    margin: 15px 0;
+}
+
+.analysis-content code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+}
+
+.analysis-content h1,
+.analysis-content h2,
+.analysis-content h3 {
+    margin-top: 30px;
+    margin-bottom: 15px;
+    color: var(--accent);
+}
+
+.analysis-content ul {
+    padding-left: 20px;
+    margin: 15px 0;
+}
+
+.analysis-content li {
+    margin: 8px 0;
+    list-style-type: none;
+    position: relative;
+}
+
+.analysis-content li:before {
+    content: "→";
+    position: absolute;
+    left: -20px;
+    color: var(--accent);
+}
+
+/* Score card improvements */
+.score-card {
+    padding: 20px;
+    border-radius: 8px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+}
+
+.score-header {
     display: flex;
-    flex-direction: column;
+    justify-content: space-between;
     align-items: center;
-    gap: 20px;
+    margin-bottom: 10px;
+}
+
+.score-bar {
+    height: 6px;
+    background: var(--bg-secondary);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.score-fill {
+    height: 100%;
+    background: var(--accent);
+    transition: width 0.3s ease;
+}
+
+/* Fix code block wrapping */
+pre {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+/* Improve section spacing */
+section {
     margin-bottom: 30px;
 }
 
-.larp-score {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 15px 30px;
-    border-radius: 8px;
-    background: var(--bg-secondary);
+/* Better bullet point formatting */
+.arrow-list {
+    list-style: none;
+    padding-left: 0;
 }
 
-.score-value {
-    font-size: 36px;
-    font-weight: bold;
+.arrow-list li {
+    padding-left: 1.5em;
+    position: relative;
 }
 
-.score-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 15px;
-    width: 100%;
-}
-
-.score-card {
-    padding: 15px;
-    border-radius: 8px;
-    background: var(--bg-secondary);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
-
-.analysis-text {
-    background: var(--bg-secondary);
-    padding: 20px;
-    border-radius: 8px;
-    line-height: 1.6;
-}
-
-.analysis-text pre {
-    background: var(--bg-primary);
-    padding: 10px;
-    border-radius: 4px;
-    overflow-x: auto;
-    margin: 10px 0;
-}
-
-.analysis-text code {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 14px;
+.arrow-list li:before {
+    content: "→";
+    position: absolute;
+    left: 0;
+    color: var(--accent);
 } 

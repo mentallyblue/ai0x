@@ -41,35 +41,71 @@ async function analyzeRepo(repoInfo, userApiKey = null) {
         // Create the analysis prompt
         const prompt = `Analyze this GitHub repository:
 
+# Repository Details
 Repository: ${repoDetails.full_name}
 Description: ${description || 'N/A'}
 Language: ${repoDetails.language}
 Stars: ${repoDetails.stargazers_count}
 
-Technical Analysis:
+# Technical Analysis
+
+## Code Review
 ${codeContents.map(file => `
-\`\`\`${getFileExtension(file.path)}:${file.path}
+File: ${file.path}
+\`\`\`${getFileExtension(file.path)}
 ${file.content.slice(0, 500)}${file.content.length > 500 ? '...' : ''}
 \`\`\`
 `).join('\n')}
 
-Provide:
-1. Code quality assessment
-2. Implementation analysis
-3. Security review
-4. Best practices evaluation
+## Analysis Categories
 
-Score each category (0-25):
-• Code Quality: [Score] - [Reason]
-• Project Structure: [Score] - [Reason]
-• Implementation: [Score] - [Reason]
-• Documentation: [Score] - [Reason]
+1. Code Quality Assessment
+   • Architecture and patterns
+   • Code organization
+   • Error handling
+   • Performance considerations
 
-Calculate LARP Score (0-100):
-🟢 0-30: Exceptional
-🟡 31-50: Good
-🟠 51-70: Needs Work
-🔴 71-100: Critical Issues`;
+2. Implementation Analysis  
+   • Core functionality
+   • API integrations
+   • Data management
+   • Security practices
+
+3. Project Structure
+   • Directory organization
+   • Dependency management
+   • Configuration approach
+   • Build system
+
+4. Documentation Review
+   • Code comments
+   • API documentation
+   • Setup instructions
+   • Architecture docs
+
+## Scoring
+
+Category Scores (0-25):
+1. Code Quality: [Score]
+   Reason: [Detailed explanation]
+
+2. Project Structure: [Score]
+   Reason: [Detailed explanation]
+
+3. Implementation: [Score]
+   Reason: [Detailed explanation]
+
+4. Documentation: [Score]
+   Reason: [Detailed explanation]
+
+LARP Score (0-100):
+[Score] - [Detailed justification]
+
+Rating Scale:
+✅ 0-30: Exceptional
+✓ 31-50: Good
+⚠️ 51-70: Needs Work
+❌ 71-100: Critical Issues`;
 
         const systemPrompt = `You are a strict technical analyzer specializing in GitHub repositories. Your analysis must be:
 
