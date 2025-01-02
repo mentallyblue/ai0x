@@ -26,12 +26,18 @@ async function analyzeRepo(repoInfo, userApiKey = null) {
         const repoDetails = await getRepoDetails(repoInfo);
         const codeContents = await getRepoContents(repoInfo);
         
+        // Generate description if none exists
+        let description = repoDetails.description;
+        if (!description || description.toLowerCase() === 'no description provided') {
+            description = await generateRepoDescription(codeContents);
+        }
+
         // Create the analysis prompt
         const prompt = `You are analyzing a GitHub repository. Provide a detailed technical assessment in the following format:
 
         Repository Details:
         - Name: ${repoDetails.full_name}
-        - Description: ${repoDetails.description || 'No description provided'}
+        - Description: ${description || 'Unable to generate description'}
         - Stars: ${repoDetails.stargazers_count}
         - Language: ${repoDetails.language}
 
@@ -442,6 +448,30 @@ function detectDataProcessing(content) {
             found: p.pattern.test(content)
         }))
         .filter(result => result.found);
+}
+
+// Add this function to generate a description
+async function generateRepoDescription(codeContents) {
+    try {
+        const descriptionPrompt = `Based on the following code files from a GitHub repository, generate a clear, concise 2-3 sentence description of what this project does. Focus on the main purpose and key features. Be specific but brief.
+
+        Code files:
+        ${codeContents.map(f => `File: ${f.path}\n${f.content}`).join('\n\n')}`;
+
+        const response = await anthropic.messages.create({
+            model: 'claude-3-opus-20240229',
+            max_tokens: 200,
+            messages: [{ 
+                role: 'user', 
+                content: descriptionPrompt
+            }]
+        });
+
+        return response.content[0].text.trim();
+    } catch (error) {
+        console.error('Error generating description:', error);
+        return null;
+    }
 }
 
 module.exports = { analyzeRepo }; 

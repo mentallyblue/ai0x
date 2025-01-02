@@ -6,23 +6,12 @@
     <title>AI0x | Analysis History</title>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap">
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="icon" type="image/x-icon" href="/images/image.jpg">
+    <link rel="icon" type="image/png" sizes="32x32" href="/images/image.jpg">
+    <link rel="icon" type="image/png" sizes="16x16" href="/images/image.jpg">
     <style>
-        /* Copy the root variables and base styles from index.html */
-        :root {
-            --bg-primary: #0a0a0a;
-            --bg-secondary: #141414;
-            --text-primary: #e0e0e0;
-            --text-secondary: #808080;
-            --accent: #00ff9d;
-            --accent-dark: #00cc7e;
-            --border: #222;
-            --error: #ff4444;
-            --gradient: linear-gradient(135deg, #00ff9d 0%, #00b8ff 100%);
-        }
-
-        /* ... (copy other base styles from index.html) ... */
-
-        /* Add new styles specific to history page */
+        /* Only keeping history-specific styles, removing duplicates that are in styles.css */
         .analysis-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -30,42 +19,11 @@
             margin-top: 30px;
         }
 
-        .analysis-card {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 20px;
-            transition: all 0.3s ease;
-        }
-
-        .analysis-card:hover {
-            transform: translateY(-2px);
-            border-color: var(--accent);
-            box-shadow: 0 5px 15px rgba(0, 255, 157, 0.1);
-        }
-
-        .repo-header {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            margin-bottom: 15px;
-        }
-
         .repo-name-section {
             display: flex;
             align-items: center;
             gap: 8px;
             width: 100%;
-        }
-
-        .repo-name {
-            color: var(--accent);
-            font-size: 16px;
-            font-weight: bold;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            flex: 1;
         }
 
         .github-link {
@@ -82,153 +40,6 @@
             background: var(--bg-primary);
         }
 
-        .analysis-date {
-            color: var(--text-secondary);
-            font-size: 12px;
-        }
-
-        .score-summary {
-            background: var(--bg-primary);
-            padding: 15px;
-            border-radius: 8px;
-            margin: 15px 0;
-        }
-
-        .score-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin: 5px 0;
-        }
-
-        .score-label {
-            color: var(--text-secondary);
-            font-size: 13px;
-        }
-
-        .score-value {
-            color: var(--accent);
-            font-weight: bold;
-        }
-
-        .tech-tags {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-top: 15px;
-        }
-
-        .tech-tag {
-            background: var(--bg-primary);
-            color: var(--text-secondary);
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            border: 1px solid var(--border);
-        }
-
-        .filters {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 30px;
-        }
-
-        .filter-group {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .filter-label {
-            color: var(--text-secondary);
-            font-size: 14px;
-        }
-
-        select {
-            background: var(--bg-secondary);
-            color: var(--text-primary);
-            border: 1px solid var(--border);
-            padding: 8px;
-            border-radius: 4px;
-            font-family: inherit;
-        }
-
-        .stats-bar {
-            display: flex;
-            gap: 20px;
-            margin-bottom: 30px;
-            background: var(--bg-secondary);
-            padding: 20px;
-            border-radius: 12px;
-            border: 1px solid var(--border);
-        }
-
-        .stat-item {
-            flex: 1;
-            text-align: center;
-        }
-
-        .stat-value {
-            font-size: 24px;
-            font-weight: bold;
-            color: var(--accent);
-        }
-
-        .stat-label {
-            color: var(--text-secondary);
-            font-size: 14px;
-            margin-top: 5px;
-        }
-
-        .pagination {
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-            margin-top: 40px;
-        }
-
-        .page-button {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            color: var(--text-primary);
-            padding: 8px 12px;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .page-button:hover {
-            border-color: var(--accent);
-            color: var(--accent);
-        }
-
-        .page-button.active {
-            background: var(--accent);
-            color: var(--bg-primary);
-            border-color: var(--accent);
-        }
-
-        /* Add these missing base styles after the root variables */
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'JetBrains Mono', monospace;
-            background-color: var(--bg-primary);
-            color: var(--text-primary);
-            line-height: 1.6;
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 20px;
-        }
-
-        /* Update the stats-bar styles */
         .stats-bar {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -248,7 +59,7 @@
         .stat-item:hover {
             transform: translateY(-2px);
             border-color: var(--accent);
-            box-shadow: 0 5px 15px rgba(0, 255, 157, 0.1);
+            box-shadow: 0 6px 25px rgba(255, 215, 0, 0.1);
         }
 
         .stat-value {
@@ -265,22 +76,6 @@
             font-size: 14px;
         }
 
-        /* Update the analysis card styles */
-        .analysis-card {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 24px;
-            transition: all 0.3s ease;
-        }
-
-        .analysis-card:hover {
-            transform: translateY(-2px);
-            border-color: var(--accent);
-            box-shadow: 0 5px 15px rgba(0, 255, 157, 0.1);
-        }
-
-        /* Update the filters section */
         .filters {
             background: var(--bg-secondary);
             padding: 20px;
@@ -303,150 +98,50 @@
             font-size: 14px;
         }
 
-        select {
+        .filter-select {
             background: var(--bg-primary);
             color: var(--text-primary);
             border: 1px solid var(--border);
+            border-radius: 6px;
             padding: 8px 12px;
-            border-radius: 8px;
-            font-family: inherit;
             font-size: 14px;
-            cursor: pointer;
-            transition: all 0.2s;
+            outline: none;
         }
 
-        select:hover {
+        .filter-select:focus {
             border-color: var(--accent);
         }
 
-        /* Update pagination styles */
-        .pagination {
-            display: flex;
-            justify-content: center;
-            gap: 8px;
-            margin-top: 40px;
-            margin-bottom: 40px;
-        }
-
-        .page-button {
-            background: var(--bg-secondary);
-            color: var(--text-primary);
-            border: 1px solid var(--border);
-            padding: 8px 16px;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-family: inherit;
-            font-size: 14px;
-        }
-
-        .page-button:hover {
-            border-color: var(--accent);
-            color: var(--accent);
-        }
-
-        .page-button.active {
-            background: var(--gradient);
-            color: var(--bg-primary);
-            border: none;
-        }
-
-        /* Add loading animation */
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
-        }
-
-        .loading {
-            animation: pulse 1.5s infinite;
-            color: var(--text-secondary);
-            text-align: center;
-            padding: 40px;
-        }
-
-        /* Add these header styles after the root variables */
-        .header {
-            background: var(--bg-secondary);
-            border-bottom: 1px solid var(--border);
-            padding: 20px;
-            margin-bottom: 40px;
-        }
-
-        .header-content {
-            max-width: 1200px;
-            margin: 0 auto;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .logo {
-            font-size: 24px;
-            font-weight: bold;
-            background: var(--gradient);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .logo::before {
-            content: '⚡';
-            -webkit-text-fill-color: var(--accent);
-        }
-
-        .nav-links {
-            display: flex;
-            gap: 20px;
-        }
-
-        .nav-links a {
-            color: var(--text-secondary);
-            text-decoration: none;
-            transition: color 0.2s;
-            font-size: 14px;
-        }
-
-        .nav-links a:hover {
-            color: var(--accent);
-        }
-
-        .nav-links a.active {
-            color: var(--accent);
-            position: relative;
-        }
-
-        .nav-links a.active::after {
-            content: '';
-            position: absolute;
-            bottom: -5px;
-            left: 0;
-            width: 100%;
-            height: 2px;
-            background: var(--gradient);
-        }
-
-        /* Add footer styles */
-        .footer {
-            margin-top: 100px;
-            padding: 40px 20px;
-            background: var(--bg-secondary);
-            border-top: 1px solid var(--border);
-            text-align: center;
+        .repo-description {
             color: var(--text-secondary);
             font-size: 14px;
+            line-height: 1.5;
+            margin: 10px 0;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
     </style>
 </head>
 <body>
     <header class="header">
         <div class="header-content">
-            <div class="logo">AI0x</div>
+            <a href="/" class="logo">
+                <img src="/images/image.jpg" alt="AI0x" class="logo-img">
+                <span class="logo-text">ai0x</span>
+            </a>
             <nav class="nav-links">
                 <a href="/" class="nav-link">Analyze</a>
                 <a href="/history.html" class="nav-link active">History</a>
+                <div class="social-links">
+                    <a href="https://x.com/ai0xdotfun" target="_blank" class="social-link" title="Follow us on X">
+                        <svg width="20" height="20" viewBox="0 0 24 24">
+                            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                        </svg>
+                    </a>
+                </div>
             </nav>
         </div>
     </header>
@@ -496,12 +191,14 @@
 
         <div class="analysis-grid" id="analysisGrid"></div>
 
-        <div class="pagination" id="pagination"></div>
+        <div class="pagination" id="pagination">
+            <button id="prevPage" onclick="changePage(-1)" disabled>Previous</button>
+            <span class="pagination-info">
+                Page <span id="currentPageDisplay">1</span> of <span id="totalPagesDisplay">1</span>
+            </span>
+            <button id="nextPage" onclick="changePage(1)">Next</button>
+        </div>
     </div>
-
-    <footer class="footer">
-        <p>AI0x Platform © 2025 | Built with 🤖 and ❤️</p>
-    </footer>
 
     <script>
         let allAnalyses = [];
@@ -609,8 +306,11 @@
                                     </svg>
                                 </a>
                             </div>
-                            <div class="analysis-date">Analyzed: ${new Date(analysis.lastAnalyzed).toLocaleDateString()}</div>
                         </div>
+                        <div class="repo-description">
+                            ${analysis.description || 'No description available'}
+                        </div>
+                        <div class="analysis-date">Analyzed: ${new Date(analysis.lastAnalyzed).toLocaleDateString()}</div>
                         <div class="score-summary">
                             <div class="score-row">
                                 <span class="score-label">LARP Score</span>
