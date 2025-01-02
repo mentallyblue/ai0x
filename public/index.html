@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Repo Analyzer</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        :root {
+            --bg-primary: #1a1a1a;
+            --bg-secondary: #252525;
+            --text-primary: #e0e0e0;
+            --text-secondary: #b0b0b0;
+            --accent: #4a9eff;
+            --border: #333;
+            --error: #ff4444;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'SF Mono', 'Fira Code', Consolas, monospace;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: var(--accent);
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        input {
+            flex: 1;
+            padding: 12px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 14px;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        button {
+            padding: 12px 24px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 14px;
+            transition: opacity 0.2s;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        .result {
+            margin-top: 20px;
+        }
+
+        .analysis-section {
+            background: var(--bg-secondary);
+            padding: 24px;
+            border-radius: 4px;
+            border: 1px solid var(--border);
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: var(--text-secondary);
+        }
+
+        .error {
+            color: var(--error);
+            padding: 15px;
+            background: rgba(255, 68, 68, 0.1);
+            border-radius: 4px;
+            border: 1px solid rgba(255, 68, 68, 0.2);
+        }
+
+        /* Markdown Styles */
+        .markdown-body {
+            color: var(--text-primary);
+        }
+
+        .markdown-body h1,
+        .markdown-body h2,
+        .markdown-body h3 {
+            margin-top: 24px;
+            margin-bottom: 16px;
+            color: var(--accent);
+        }
+
+        .markdown-body h2 {
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .markdown-body p {
+            margin-bottom: 16px;
+            color: var(--text-secondary);
+        }
+
+        .markdown-body code {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'SF Mono', 'Fira Code', Consolas, monospace;
+        }
+
+        .markdown-body pre {
+            background: var(--bg-primary);
+            padding: 16px;
+            border-radius: 4px;
+            overflow-x: auto;
+            border: 1px solid var(--border);
+        }
+
+        .markdown-body ul,
+        .markdown-body ol {
+            padding-left: 24px;
+            margin-bottom: 16px;
+        }
+
+        .markdown-body li {
+            margin-bottom: 8px;
+            color: var(--text-secondary);
+        }
+
+        .markdown-body blockquote {
+            padding: 0 16px;
+            border-left: 4px solid var(--accent);
+            color: var(--text-secondary);
+        }
+
+        .recent-analyses {
+            margin-top: 40px;
+        }
+
+        .recent-list {
+            display: grid;
+            gap: 16px;
+            margin-top: 20px;
+        }
+
+        .repo-card {
+            background: var(--bg-secondary);
+            padding: 16px;
+            border-radius: 4px;
+            border: 1px solid var(--border);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .repo-card:hover {
+            transform: translateY(-2px);
+            border-color: var(--accent);
+            box-shadow: 0 4px 12px rgba(74, 158, 255, 0.1);
+        }
+
+        .repo-card:active {
+            transform: translateY(0);
+        }
+
+        .repo-card h3 {
+            color: var(--accent);
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+
+        .repo-meta {
+            color: var(--text-secondary);
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .larp-score {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            background: var(--accent);
+            color: white;
+            font-size: 12px;
+            font-weight: 500;
+            margin-left: 8px;
+        }
+
+        .cached-notice {
+            background: rgba(74, 158, 255, 0.1);
+            color: var(--accent);
+            padding: 8px 12px;
+            border-radius: 4px;
+            margin-bottom: 16px;
+            font-size: 14px;
+        }
+
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            color: var(--text-secondary);
+            font-style: italic;
+        }
+
+        .loading::after {
+            content: '';
+            width: 16px;
+            height: 16px;
+            margin-left: 8px;
+            border: 2px solid var(--accent);
+            border-radius: 50%;
+            border-right-color: transparent;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .score-breakdown {
+            background: var(--bg-primary);
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border: 1px solid var(--border);
+        }
+
+        .score-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin: 10px 0;
+            padding: 8px;
+            border-radius: 4px;
+            background: var(--bg-secondary);
+            position: relative;
+        }
+
+        .score-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .info-icon {
+            cursor: help;
+            color: var(--accent);
+            font-size: 14px;
+        }
+
+        .tooltip {
+            position: absolute;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            max-width: 250px;
+            border: 1px solid var(--border);
+            z-index: 100;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.2s;
+            left: 100%;
+            top: 50%;
+            transform: translateY(-50%);
+            margin-left: 10px;
+        }
+
+        .info-icon:hover + .tooltip {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .score-value {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .score-bar {
+            width: 100px;
+            height: 6px;
+            background: var(--bg-primary);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .score-fill {
+            height: 100%;
+            background: var(--accent);
+            transition: width 0.3s ease;
+        }
+
+        .total-score {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--accent);
+            text-align: center;
+            margin: 20px 0;
+            padding: 20px;
+            border-radius: 8px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+        }
+
+        .score-rating {
+            font-size: 14px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            margin-left: 8px;
+        }
+
+        .rating-excellent {
+            background: #4caf50;
+            color: white;
+        }
+
+        .rating-good {
+            background: #2196f3;
+            color: white;
+        }
+
+        .rating-fair {
+            background: #ff9800;
+            color: white;
+        }
+
+        .rating-poor {
+            background: #f44336;
+            color: white;
+        }
+
+        .flow-diagram {
+            background: var(--bg-primary);
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border: 1px solid var(--border);
+        }
+
+        .flow-diagram h3 {
+            color: var(--accent);
+            margin-bottom: 16px;
+        }
+
+        .mermaid {
+            display: flex;
+            justify-content: center;
+            padding: 10px;
+            background: var(--bg-secondary);
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>GitHub Repository Analyzer</h1>
+        <div class="input-group">
+            <input type="text" id="repoUrl" 
+                   placeholder="Enter GitHub repository URL (e.g., https://github.com/username/repo)"
+                   spellcheck="false">
+            <button onclick="analyzeRepo()">Analyze</button>
+        </div>
+        <div class="recent-analyses">
+            <h2>Recent Analyses</h2>
+            <div id="recentList" class="recent-list"></div>
+        </div>
+        <div id="result" class="result"></div>
+    </div>
+
+    <script>
+        let statusCheckInterval;
+
+        async function analyzeRepo() {
+            const repoUrl = document.getElementById('repoUrl').value;
+            const apiKey = localStorage.getItem('userApiKey'); // Optional user API key
+            
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '<div class="loading">Analyzing repository... Please wait...</div>';
+            
+            try {
+                const response = await fetch('/api/analyze', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ 
+                        repoUrl,
+                        apiKey 
+                    })
+                });
+                
+                const data = await response.json();
+                if (response.ok) {
+                    displayAnalysis(data);
+                    // Refresh recent analyses after successful analysis
+                    loadRecentAnalyses();
+                } else {
+                    resultDiv.innerHTML = `<div class="error">Error: ${data.error}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+
+        function getRating(score) {
+            if (score >= 90) return ['Excellent', 'rating-excellent'];
+            if (score >= 70) return ['Good', 'rating-good'];
+            if (score >= 50) return ['Fair', 'rating-fair'];
+            return ['Poor', 'rating-poor'];
+        }
+
+        function createScoreBreakdown(analysis) {
+            // First try to find the total score from the analysis text
+            const totalPattern = /Total LARP Score:\s*(\d+)/i;
+            const totalMatch = analysis.match(totalPattern);
+            const totalLarpScore = totalMatch ? parseInt(totalMatch[1], 10) : 0;
+
+            // Extract detailed scores
+            const detailedPattern = /Code quality.*?\(25 points\):\s*(\d+).*?Project structure.*?\(25 points\):\s*(\d+).*?Implementation.*?\(25 points\):\s*(\d+).*?Documentation.*?\(25 points\):\s*(\d+)/s;
+            const matches = analysis.match(detailedPattern);
+
+            const scores = {
+                codeQuality: { 
+                    score: matches ? parseInt(matches[1], 10) : 0, 
+                    total: 25, 
+                    tooltip: 'Evaluates code structure, patterns, and best practices' 
+                },
+                projectStructure: { 
+                    score: matches ? parseInt(matches[2], 10) : 0, 
+                    total: 25, 
+                    tooltip: 'Assesses project organization and architecture' 
+                },
+                implementation: { 
+                    score: matches ? parseInt(matches[3], 10) : 0, 
+                    total: 25, 
+                    tooltip: 'Measures completeness and functionality of the implementation' 
+                },
+                documentation: { 
+                    score: matches ? parseInt(matches[4], 10) : 0, 
+                    total: 25, 
+                    tooltip: 'Rates documentation quality and code comments' 
+                }
+            };
+
+            const [rating, ratingClass] = getRating(totalLarpScore);
+
+            // Create flow diagram based on AI findings
+            const aiAnalysis = analysis.match(/AI Integration Analysis:([\s\S]*?)Logic Flow Analysis:/);
+            const logicFlow = analysis.match(/Logic Flow Analysis:([\s\S]*?)\n\n/);
+            
+            let flowDiagram = `
+            graph TD
+                User[User Input] --> Validation[Input Validation]
+                Validation --> GitHub[GitHub API]
+                GitHub --> CodeAnalysis[Code Analysis]
+            `;
+
+            // Add AI integrations if found
+            if (aiAnalysis && aiAnalysis[1]) {
+                try {
+                    const aiData = JSON.parse(aiAnalysis[1]);
+                    Object.entries(aiData).forEach(([provider, data]) => {
+                        if (data.found) {
+                            flowDiagram += `
+                                CodeAnalysis --> ${provider}[${provider.toUpperCase()}]
+                                ${provider} --> Processing[Result Processing]
+                            `;
+                        }
+                    });
+                } catch (e) {
+                    console.error('Error parsing AI analysis:', e);
+                }
+            }
+
+            flowDiagram += `
+                CodeAnalysis --> Processing
+                Processing --> Results[Final Analysis]
+            `;
+
+            return `
+                <div class="total-score">
+                    LARP Score: ${totalLarpScore}
+                    <span class="score-rating ${ratingClass}">${rating}</span>
+                </div>
+                <div class="flow-diagram">
+                    <h3>Code Flow Analysis</h3>
+                    <div class="mermaid">
+                        ${flowDiagram}
+                    </div>
+                </div>
+                <div class="score-breakdown">
+                    ${Object.entries(scores).map(([key, data]) => `
+                        <div class="score-item">
+                            <div class="score-label">
+                                ${key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                                <span class="info-icon">ⓘ</span>
+                                <div class="tooltip">${getTooltip(key, data.score)}</div>
+                            </div>
+                            <div class="score-value">
+                                <div class="score-bar">
+                                    <div class="score-fill" style="width: ${(data.score / data.total) * 100}%"></div>
+                                </div>
+                                ${data.score}/${data.total}
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        function displayAnalysis(data) {
+            const resultDiv = document.getElementById('result');
+            const analysis = data.cached ? data.analysis : data.analysis;
+            
+            // Use marked to convert markdown to HTML
+            const htmlContent = marked.parse(analysis);
+
+            // Insert the score breakdown before the full analysis
+            resultDiv.innerHTML = `
+                <div class="analysis-section markdown-body">
+                    ${data.cached ? '<div class="cached-notice">⚡ Showing cached analysis (less than 24h old)</div>' : ''}
+                    ${createScoreBreakdown(analysis)}
+                    ${htmlContent}
+                </div>
+            `;
+        }
+
+        // Configure marked options
+        marked.setOptions({
+            breaks: true,
+            gfm: true,
+            headerIds: true,
+            headerPrefix: 'section-'
+        });
+
+        // Add keyboard shortcut (Enter key) for analysis
+        document.getElementById('repoUrl').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                analyzeRepo();
+            }
+        });
+
+        function formatLarpScore(score) {
+            console.log('Raw LARP score:', score);
+            if (score === null || score === undefined || isNaN(score)) {
+                // Try to extract from fullAnalysis if available
+                const analysisDiv = document.querySelector('.analysis-section');
+                if (analysisDiv) {
+                    const text = analysisDiv.textContent;
+                    const match = text.match(/LARP Score.*?(\d+)/i);
+                    if (match && match[1]) {
+                        const extracted = parseInt(match[1], 10);
+                        console.log('Extracted LARP score from analysis:', extracted);
+                        return extracted.toString();
+                    }
+                }
+                return 'N/A';
+            }
+            return score.toString();
+        }
+
+        async function loadRecentAnalyses() {
+            try {
+                const response = await fetch('/api/recent');
+                const analyses = await response.json();
+                
+                const recentList = document.getElementById('recentList');
+                recentList.innerHTML = analyses.map(repo => {
+                    const larpScore = repo.analysis?.larpScore;
+                    console.log('LARP score for', repo.fullName, ':', larpScore); // Debug log
+                    
+                    return `
+                        <div class="repo-card" onclick="loadAnalysis('${repo.fullName}')">
+                            <h3>${repo.fullName}</h3>
+                            <div class="repo-meta">
+                                ${repo.description || 'No description provided'}
+                                <br>
+                                ${repo.language || 'Unknown'} • ${repo.stars || 0} stars
+                                <br>
+                                Analyzed: ${new Date(repo.lastAnalyzed).toLocaleDateString()}
+                                <span class="larp-score">LARP: ${formatLarpScore(larpScore)}</span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                // Add click handlers
+                document.querySelectorAll('.repo-card').forEach(card => {
+                    card.addEventListener('click', function() {
+                        // Add visual feedback
+                        this.style.opacity = '0.7';
+                        setTimeout(() => this.style.opacity = '1', 200);
+                    });
+                });
+            } catch (error) {
+                console.error('Failed to load recent analyses:', error);
+                const recentList = document.getElementById('recentList');
+                recentList.innerHTML = '<div class="error">Failed to load recent analyses</div>';
+            }
+        }
+
+        async function loadAnalysis(fullName) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '<div class="loading">Loading analysis...</div>';
+            
+            try {
+                const [owner, repo] = fullName.split('/');
+                const response = await fetch(`/api/repository/${owner}/${repo}`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    // Scroll to the result
+                    displayAnalysis({
+                        analysis: data.analysis.fullAnalysis,
+                        cached: true
+                    });
+                    resultDiv.scrollIntoView({ behavior: 'smooth' });
+                } else {
+                    resultDiv.innerHTML = `<div class="error">Error: ${data.error}</div>`;
+                }
+            } catch (error) {
+                console.error('Failed to load analysis:', error);
+                resultDiv.innerHTML = `<div class="error">Failed to load analysis</div>`;
+            }
+        }
+
+        // Call this when the page loads
+        document.addEventListener('DOMContentLoaded', loadRecentAnalyses);
+
+        // Update the tooltips with more detailed explanations
+        const scoreTooltips = {
+            codeQuality: {
+                excellent: 'Exceptional code organization, clean patterns, and best practices',
+                good: 'Well-structured code with good practices',
+                fair: 'Basic code organization with room for improvement',
+                poor: 'Needs significant improvement in code quality'
+            },
+            projectStructure: {
+                excellent: 'Outstanding architecture and project organization',
+                good: 'Solid project structure and clear organization',
+                fair: 'Basic project structure present',
+                poor: 'Lacks clear project structure'
+            },
+            implementation: {
+                excellent: 'Complete and robust implementation',
+                good: 'Well-implemented core functionality',
+                fair: 'Basic functionality implemented',
+                poor: 'Incomplete or problematic implementation'
+            },
+            documentation: {
+                excellent: 'Comprehensive documentation and clear comments',
+                good: 'Good documentation coverage',
+                fair: 'Basic documentation present',
+                poor: 'Insufficient documentation'
+            }
+        };
+
+        // Helper function to get tooltip based on score
+        function getTooltip(category, score) {
+            if (score >= 23) return scoreTooltips[category].excellent;
+            if (score >= 20) return scoreTooltips[category].good;
+            if (score >= 15) return scoreTooltips[category].fair;
+            return scoreTooltips[category].poor;
+        }
+
+        // Initialize Mermaid with dark theme
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'dark',
+            themeVariables: {
+                darkMode: true,
+                background: '#252525',
+                primaryColor: '#4a9eff',
+                primaryTextColor: '#e0e0e0',
+                primaryBorderColor: '#4a9eff',
+                lineColor: '#666',
+                secondaryColor: '#333',
+                tertiaryColor: '#2a2a2a'
+            }
+        });
+    </script>
+</body>
+</html> 
