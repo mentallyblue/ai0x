@@ -17,8 +17,10 @@
     "marked": "^12.0.0",
     "mongoose": "^8.2.0",
     "socket.io": "^4.8.1",
-    "express-rate-limit": "^7.1.5",
-    "rate-limit-redis": "^4.2.0"
+    "express-rate-limit": "^6.7.0",
+    "rate-limit-redis": "^4.2.0",
+    "helmet": "^7.0.0",
+    "compression": "^1.7.4"
   },
   "devDependencies": {
     "nodemon": "^3.0.3"

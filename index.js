@@ -14,6 +14,9 @@ const { analyzeRepo } = require('./services/analyzer');
 const { extractRepoInfo } = require('./utils/githubUtils');
 const Repository = require('./models/Repository');
 const ApiKey = require('./models/ApiKey');
+const rateLimit = require('express-rate-limit');
+const helmet = require('helmet');
+const compression = require('compression');
 
 // Set up middleware
 app.use(express.json());
@@ -81,31 +84,33 @@ app.get('/api/repository/:owner/:repo', async (req, res) => {
     }
 });
 
-app.post('/api/analyze', async (req, res) => {
+// Add security headers
+app.use(helmet());
+
+// Add compression
+app.use(compression());
+
+// Global rate limiter
+const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100 // limit each IP to 100 requests per windowMs
+});
+
+app.use(limiter);
+
+// Analyze endpoint with its own stricter rate limit
+const analyzeLimit = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    max: 5 // limit each IP to 5 requests per minute
+});
+
+app.post('/api/analyze', analyzeLimit, async (req, res) => {
     try {
-        const { repoUrl } = req.body;
-        if (!repoUrl) {
-            return res.status(400).json({ error: 'Repository URL is required' });
-        }
-
-        console.log('Analyzing repo URL:', repoUrl);
-        
-        const repoInfo = extractRepoInfo(repoUrl);
-        if (!repoInfo || !repoInfo.owner || !repoInfo.repo) {
-            return res.status(400).json({ error: 'Invalid GitHub repository URL' });
-        }
-
-        // Add to queue
-        const jobId = await queueTracker.addToQueue(`${repoInfo.owner}/${repoInfo.repo}`);
-        console.log('Added to queue with jobId:', jobId);
-        
+        const ip = req.ip;
+        const jobId = await queueTracker.addToQueue(req.body.repoUrl, ip);
         res.json({ jobId });
     } catch (error) {
-        console.error('Analysis error:', error);
-        res.status(500).json({ 
-            error: error.message || 'Failed to analyze repository',
-            details: process.env.NODE_ENV === 'development' ? error.stack : undefined
-        });
+        res.status(429).json({ error: error.message });
     }
 });
 
@@ -136,7 +141,7 @@ app.get('/api/analyses', async (req, res) => {
 app.get('/api/queue-position/:jobId', async (req, res) => {
     try {
         const { jobId } = req.params;
-        const position = await queueTracker.getQueuePosition(parseInt(jobId, 10));
+        const position = await queueTracker.getQueuePosition(jobId);
         res.json(position);
     } catch (error) {
         console.error('Queue position error:', error);

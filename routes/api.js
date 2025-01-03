@@ -1,5 +1,118 @@
-const { queueTracker, analysisQueue } = require('../services/queueService');
+const express = require('express');
+const router = express.Router();
+const { validateGitHubUrl } = require('../middleware/validateRequest');
+const { analyzeLimiter, apiLimiter, trackRequest } = require('../middleware/rateLimiter');
+const { queueTracker } = require('../services/queueService');
+const Repository = require('../models/Repository');
 
+// Apply rate limiting and request tracking to all routes
+router.use(trackRequest);
+
+// Apply specific rate limits to different endpoints
+router.post('/analyze', analyzeLimiter, validateGitHubUrl, async (req, res) => {
+    try {
+        const { owner, repo } = req.githubRepo;
+        const jobId = await queueTracker.addToQueue(`${owner}/${repo}`);
+
+        if (typeof jobId === 'object' && jobId.error) {
+            return res.status(429).json({ error: jobId.error });
+        }
+
+        res.json({ jobId });
+    } catch (error) {
+        console.error('Analysis request error:', error);
+        res.status(500).json({ error: 'Failed to queue analysis request' });
+    }
+});
+
+// Add rate limiting to API endpoints
+router.get('/analyses', apiLimiter, async (req, res) => {
+    try {
+        const analyses = await Repository.find()
+            .select({
+                fullName: 1,
+                description: 1,
+                language: 1,
+                stars: 1,
+                forks: 1,
+                lastAnalyzed: 1,
+                'analysis.detailedScores': 1,
+                'analysis.legitimacyScore': 1,
+                'analysis.trustScore': 1,
+                'analysis.finalLegitimacyScore': 1,
+                summary: 1
+            })
+            .sort({ lastAnalyzed: -1 });
+
+        res.json(analyses);
+    } catch (error) {
+        console.error('Error fetching analyses:', error);
+        res.status(500).json({ error: 'Failed to fetch analyses' });
+    }
+});
+
+router.get('/recent', apiLimiter, async (req, res) => {
+    try {
+        const analyses = await Repository.find()
+            .select({
+                fullName: 1,
+                description: 1,
+                language: 1,
+                stars: 1,
+                forks: 1,
+                lastAnalyzed: 1,
+                summary: 1
+            })
+            .sort({ lastAnalyzed: -1 })
+            .limit(10);
+
+        res.json(analyses);
+    } catch (error) {
+        console.error('Error fetching recent analyses:', error);
+        res.status(500).json({ error: 'Failed to fetch recent analyses' });
+    }
+});
+
+router.get('/queue-position/:jobId', apiLimiter, async (req, res) => {
+    try {
+        const { jobId } = req.params;
+        if (!jobId) {
+            return res.status(400).json({ error: 'Job ID is required' });
+        }
+
+        const queueInfo = await queueTracker.getQueuePosition(jobId);
+        
+        if (queueInfo.status === 'not_found') {
+            return res.status(404).json({ error: 'Job not found' });
+        }
+
+        res.json(queueInfo);
+    } catch (error) {
+        console.error('Queue position error:', error);
+        res.status(500).json({ error: 'Failed to get queue position' });
+    }
+});
+
+router.get('/repository/:owner/:repo', apiLimiter, async (req, res) => {
+    try {
+        const { owner, repo } = req.params;
+        const repository = await Repository.findOne({ 
+            owner, 
+            repoName: repo 
+        });
+
+        if (!repository) {
+            return res.status(404).json({ error: 'Repository not found' });
+        }
+
+        res.json(repository);
+    } catch (error) {
+        console.error('Repository fetch error:', error);
+        res.status(500).json({ error: 'Failed to fetch repository analysis' });
+    }
+});
+
+// Recommendations endpoint
 router.get('/recommendations/:owner/:repo', async (req, res) => {
     try {
         const { owner, repo } = req.params;
@@ -23,148 +136,36 @@ router.get('/recommendations/:owner/:repo', async (req, res) => {
 
         res.json(similarRepos);
     } catch (error) {
-        console.error('Recommendations error:', error);
+        console.error('Error fetching recommendations:', error);
         res.status(500).json({ error: 'Failed to fetch recommendations' });
     }
 });
 
-// Add route to get a single repository analysis
-router.get('/repository/:owner/:repo', async (req, res) => {
+// Stats endpoint
+router.get('/stats', apiLimiter, async (req, res) => {
     try {
-        const { owner, repo } = req.params;
-        const analysis = await Repository.findOne({ 
-            owner, 
-            repoName: repo 
-        }).select({
-            fullName: 1,
-            description: 1,
-            language: 1,
-            stars: 1,
-            forks: 1,
-            lastAnalyzed: 1,
-            analysis: 1,  // Select all analysis fields
-            summary: 1
+        const totalRepos = await Repository.countDocuments();
+        const recentAnalyses = await Repository.countDocuments({
+            lastAnalyzed: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
         });
-
-        if (!analysis) {
-            return res.status(404).json({ error: 'Analysis not found' });
-        }
-
-        // Log the response for debugging
-        console.log('Repository analysis response:', {
-            repo: analysis.fullName,
-            scores: {
-                final: analysis.analysis?.finalLegitimacyScore,
-                technical: analysis.analysis?.legitimacyScore,
-                trust: analysis.analysis?.trustScore
+        const averageScore = await Repository.aggregate([
+            {
+                $group: {
+                    _id: null,
+                    avgScore: { $avg: '$analysis.finalLegitimacyScore' }
+                }
             }
+        ]);
+
+        res.json({
+            totalRepositories: totalRepos,
+            recentAnalyses,
+            averageScore: averageScore[0]?.avgScore || 0
         });
-
-        res.json(analysis);
     } catch (error) {
-        console.error('Error fetching repository analysis:', error);
-        res.status(500).json({ error: 'Failed to fetch repository analysis' });
+        console.error('Error fetching stats:', error);
+        res.status(500).json({ error: 'Failed to fetch stats' });
     }
 });
 
-// Update the analyses endpoint to include all score data
-router.get('/analyses', async (req, res) => {
-    try {
-        const analyses = await Repository.find()
-            .select({
-                fullName: 1,
-                description: 1,
-                language: 1,
-                stars: 1,
-                forks: 1,
-                lastAnalyzed: 1,
-                'analysis.detailedScores': 1,
-                'analysis.legitimacyScore': 1,
-                'analysis.trustScore': 1,
-                'analysis.finalLegitimacyScore': 1,
-                summary: 1
-            })
-            .sort({ lastAnalyzed: -1 });
-
-        // Add logging to debug
-        console.log('Fetched analyses:', analyses.map(a => ({
-            repo: a.fullName,
-            scores: {
-                final: a.analysis?.finalLegitimacyScore,
-                technical: a.analysis?.legitimacyScore,
-                trust: a.analysis?.trustScore
-            }
-        })));
-
-        res.json(analyses);
-    } catch (error) {
-        console.error('Error fetching analyses:', error);
-        res.status(500).json({ error: 'Failed to fetch analyses' });
-    }
-});
-
-// Update the recent endpoint to include all score data
-router.get('/recent', async (req, res) => {
-    try {
-        console.log('Fetching recent analyses...');
-        
-        const analyses = await Repository.find()
-            .select({
-                fullName: 1,
-                description: 1,
-                language: 1,
-                stars: 1,
-                forks: 1,
-                lastAnalyzed: 1,
-                summary: 1
-            })
-            .sort({ lastAnalyzed: -1 })
-            .limit(10);
-
-        res.json(analyses);
-    } catch (error) {
-        console.error('Error fetching recent analyses:', error);
-        res.status(500).json({ error: 'Failed to fetch recent analyses' });
-    }
-});
-
-// Update the analyze endpoint
-router.post('/analyze', async (req, res) => {
-    try {
-        const { repoUrl } = req.body;
-        if (!repoUrl) {
-            return res.status(400).json({ error: 'Repository URL is required' });
-        }
-
-        // Add logging to debug
-        console.log('Analyzing repo URL:', repoUrl);
-        
-        const repoInfo = parseGitHubUrl(repoUrl);
-        if (!repoInfo || !repoInfo.owner || !repoInfo.repo) {
-            return res.status(400).json({ error: 'Invalid GitHub repository URL' });
-        }
-
-        // Add to queue
-        const jobId = await queueTracker.addToQueue(`${repoInfo.owner}/${repoInfo.repo}`);
-        console.log('Added to queue with jobId:', jobId);
-        
-        res.json({ jobId });
-    } catch (error) {
-        console.error('Analysis error:', error); // Add detailed error logging
-        res.status(500).json({ 
-            error: error.message || 'Failed to analyze repository',
-            details: process.env.NODE_ENV === 'development' ? error.stack : undefined
-        });
-    }
-});
-
-// Add new endpoint for queue position
-router.get('/queue-position/:jobId', async (req, res) => {
-    try {
-        const { jobId } = req.params;
-        const queueInfo = await queueTracker.getQueuePosition(jobId);
-        res.json(queueInfo);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-}); 
+module.exports = router; 

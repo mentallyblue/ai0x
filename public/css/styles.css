@@ -758,50 +758,70 @@ button::after {
 
 .queue-status {
     background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    border-radius: 12px;
     padding: 20px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
     margin: 20px 0;
-    text-align: center;
 }
 
-.queue-position {
-    font-size: 1.2em;
+.queue-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: 15px;
-    color: var(--accent);
+    color: var(--text-secondary);
 }
 
-.queue-progress {
-    height: 4px;
+.queue-info .status {
+    color: var(--accent);
+    font-weight: bold;
+}
+
+.queue-info .time {
+    font-size: 0.9em;
+    opacity: 0.8;
+}
+
+.progress-container {
+    height: 6px;
     background: var(--bg-primary);
-    border-radius: 2px;
-    margin: 15px 0;
+    border-radius: 3px;
     overflow: hidden;
+    margin-bottom: 15px;
 }
 
 .progress-bar {
     height: 100%;
-    background: var(--gradient);
+    background: var(--accent);
     transition: width 0.5s ease;
 }
 
 .queue-message {
+    text-align: center;
     color: var(--text-secondary);
-    font-size: 0.9em;
+    font-style: italic;
+    margin-top: 10px;
 }
 
-.queue-status-header {
+.error-message {
+    color: #ef4444;
+    margin: 10px 0;
+}
+
+.retry-button {
+    margin-top: 15px;
+    padding: 8px 16px;
     background: var(--bg-primary);
-    padding: 6px 12px;
-    border-radius: 20px;
-    border: 1px solid var(--border);
-    margin-left: 15px;
+    border: 1px solid var(--accent);
+    color: var(--text-primary);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s ease;
 }
 
-.queue-count {
-    color: var(--accent);
-    font-size: 14px;
-    font-weight: 500;
+.retry-button:hover {
+    background: var(--accent);
+    color: var(--bg-primary);
 }
 
 /* Add these styles for the logo image */
@@ -1629,3 +1649,53 @@ section {
     border-left: 3px solid #ef4444;
     padding-left: 15px !important;
 } 
+.queue-status {
+    background: var(--bg-secondary);
+    padding: 20px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    margin: 20px 0;
+}
+
+.queue-info {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 15px;
+    color: var(--text-secondary);
+}
+
+.progress-container {
+    height: 6px;
+    background: var(--bg-primary);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 15px;
+}
+
+.progress-bar {
+    height: 100%;
+    background: var(--accent);
+    transition: width 0.3s ease;
+}
+
+.queue-message {
+    text-align: center;
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+.retry-button {
+    margin-top: 15px;
+    padding: 8px 16px;
+    background: var(--bg-primary);
+    border: 1px solid var(--accent);
+    color: var(--text-primary);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.retry-button:hover {
+    border-color: var(--accent);
+    transform: translateY(-1px);
+}
