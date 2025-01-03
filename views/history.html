@@ -1,0 +1,120 @@
+<style>
+    /* Code formatting */
+    .code-example {
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 8px;
+        font-family: 'Fira Code', 'Consolas', monospace;
+        white-space: pre-wrap;
+        margin: 15px 0;
+        border-left: 4px solid #17a2b8;
+        font-size: 0.9em;
+        line-height: 1.5;
+        overflow-x: auto;
+    }
+
+    /* Markdown content styling */
+    .section-content {
+        margin: 20px 0;
+    }
+
+    .section-content h1, .section-content h2 {
+        color: #2c3e50;
+        margin: 1.5em 0 0.8em;
+    }
+
+    .section-content p {
+        margin: 1em 0;
+    }
+
+    .section-content ul, .section-content ol {
+        margin: 1em 0;
+        padding-left: 2em;
+    }
+
+    .section-content blockquote {
+        border-left: 4px solid #e9ecef;
+        margin: 1em 0;
+        padding-left: 1em;
+        color: #6c757d;
+    }
+</style>
+
+<script>
+    function formatContent(content) {
+        if (!content) return '';
+        
+        // Convert code blocks
+        content = content.replace(/```(?:js|javascript)?\n?([\s\S]*?)```/g, function(match, codeContent) {
+            return '<div class="code-example">' + codeContent.trim() + '</div>';
+        });
+        
+        // Convert inline code
+        content = content.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+        
+        // Convert lists
+        content = content.replace(/^- (.+)$/gm, '<li>$1</li>');
+        content = content.replace(/(?:<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
+        
+        // Convert headers
+        content = content.replace(/^### (.*?)$/gm, '<h3>$1</h3>');
+        content = content.replace(/^## (.*?)$/gm, '<h2>$1</h2>');
+        content = content.replace(/^# (.*?)$/gm, '<h1>$1</h1>');
+        
+        // Convert paragraphs
+        content = content.replace(/^(?!<(?:ul|li|h[1-6]|div|code)[>\s])(.*?)$/gm, function(match, text) {
+            return text.trim() ? '<p>' + text.trim() + '</p>' : '';
+        });
+        
+        return content;
+    }
+
+    function displayAnalysis(analysis) {
+        const container = document.getElementById('history-container');
+        
+        analysis.forEach(item => {
+            const analysisCard = document.createElement('div');
+            analysisCard.className = 'analysis-card';
+            
+            // Format timestamp
+            const date = new Date(item.timestamp);
+            const formattedDate = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+            
+            analysisCard.innerHTML = `
+                <div class="analysis-header">
+                    <h3>${item.repoDetails.fullName}</h3>
+                    <span class="timestamp">${formattedDate}</span>
+                </div>
+                <div class="scores-section">
+                    <div class="legitimacy-score">
+                        <span class="score-label">Legitimacy Score:</span>
+                        <span class="score-value">${item.analysis.legitimacyScore}</span>
+                    </div>
+                    <div class="detailed-scores">
+                        <div class="score-item">
+                            <span>Code Reality:</span>
+                            <span>${item.analysis.detailedScores.codeQuality}/10</span>
+                        </div>
+                        <div class="score-item">
+                            <span>Technical Coherence:</span>
+                            <span>${item.analysis.detailedScores.technicalCoherence}/10</span>
+                        </div>
+                        <div class="score-item">
+                            <span>Implementation:</span>
+                            <span>${item.analysis.detailedScores.implementation}/10</span>
+                        </div>
+                        <div class="score-item">
+                            <span>Documentation:</span>
+                            <span>${item.analysis.detailedScores.documentation}/10</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="analysis-content">
+                    ${formatContent(item.analysis.fullAnalysis)}
+                </div>
+            `;
+            
+            container.appendChild(analysisCard);
+        });
+    }
+</script> 
