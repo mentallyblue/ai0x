@@ -1,14 +1,14 @@
 const mongoose = require('mongoose');
 
-const RepositorySchema = new mongoose.Schema({
-    fullName: { type: String, required: true, unique: true },
+const repositorySchema = new mongoose.Schema({
+    fullName: String,
     owner: String,
     repoName: String,
     description: String,
     language: String,
     stars: Number,
     forks: Number,
-    lastAnalyzed: { type: Date, default: Date.now },
+    lastAnalyzed: Date,
     analysis: {
         detailedScores: {
             codeQuality: Number,
@@ -19,10 +19,13 @@ const RepositorySchema = new mongoose.Schema({
         legitimacyScore: Number,
         trustScore: Number,
         finalLegitimacyScore: Number,
-        codeReview: Object,
+        codeReview: {
+            // ... other code review fields
+        },
         fullAnalysis: String,
         summary: String
-    }
+    },
+    summary: String
 });
 
-module.exports = mongoose.model('Repository', RepositorySchema); 
+module.exports = mongoose.model('Repository', repositorySchema); 

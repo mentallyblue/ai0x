@@ -23,25 +23,12 @@ async function analyzeRepo() {
             throw new Error(data.error || 'Failed to analyze repository');
         }
 
-        // Check if we got an error response
-        if (data.error) {
-            throw new Error(data.error);
+        if (!data || !data.jobId) {
+            throw new Error('Invalid response from server');
         }
 
-        console.log('Queue response:', data); // Debug log
-
-        // Validate jobId format
-        if (!data.jobId || typeof data.jobId !== 'string') {
-            throw new Error('Invalid job ID received from server');
-        }
-
-        console.log('Starting queue polling for jobId:', data.jobId);
-        
-        // Store jobId in localStorage for recovery
-        localStorage.setItem('currentAnalysisJob', data.jobId);
-        
-        // Start polling with the validated jobId
-        await pollQueuePosition(data.jobId);
+        console.log('Successfully queued analysis with jobId:', data.jobId);
+        pollQueuePosition(data.jobId);
 
     } catch (error) {
         console.error('Analysis error:', error);
@@ -56,109 +43,54 @@ async function analyzeRepo() {
 }
 
 async function pollQueuePosition(jobId) {
-    if (!jobId) {
-        console.error('No jobId provided to pollQueuePosition');
-        return;
-    }
-
     const resultDiv = document.getElementById('result');
-    let retryCount = 0;
-    const maxRetries = 3;
     
     const checkPosition = async () => {
         try {
-            console.log('Checking queue position for jobId:', jobId);
-
-            // Add error handling for malformed jobId
-            if (!jobId.startsWith('job_')) {
-                throw new Error('Invalid job ID format');
-            }
-
-            const response = await fetch(`/api/queue-position/${encodeURIComponent(jobId)}`);
+            const response = await fetch(`/api/queue-position/${jobId}`);
             const data = await response.json();
-            console.log('Queue position response:', data);
-
+            
             if (!response.ok) {
-                throw new Error(data.error || `Server returned ${response.status}`);
+                throw new Error(data.error || 'Failed to check queue position');
             }
 
-            if (data.error) {
-                throw new Error(data.error);
+            if (data.status === 'failed') {
+                throw new Error(data.error || 'Analysis failed');
             }
 
-            switch (data.status) {
-                case 'completed':
-                    if (data.result) {
-                        displayAnalysis(data.result);
-                        return true; // Stop polling
-                    }
-                    break;
-
-                case 'processing':
-                    resultDiv.innerHTML = `
-                        <div class="queue-status">
-                            <div class="queue-info">
-                                <div class="status">Currently Processing</div>
-                                <div class="time">Started: ${new Date(data.startedAt).toLocaleTimeString()}</div>
-                            </div>
-                            <div class="progress-container">
-                                <div class="progress-bar" style="width: 90%"></div>
-                            </div>
-                            <div class="queue-message">Analyzing repository...</div>
-                        </div>
-                    `;
-                    break;
-
-                case 'waiting':
-                    const progress = data.total > 0 ? 
-                        ((data.total - data.position) / data.total) * 100 : 0;
-
-                    resultDiv.innerHTML = `
-                        <div class="queue-status">
-                            <div class="queue-info">
-                                <div class="position">Queue Position: ${data.position}</div>
-                                <div class="total">Total Jobs: ${data.total}</div>
-                            </div>
-                            <div class="progress-container">
-                                <div class="progress-bar" style="width: ${progress}%"></div>
-                            </div>
-                            <div class="queue-message">Waiting in queue...</div>
-                        </div>
-                    `;
-                    break;
-
-                case 'not_found':
-                    // If job is not found, check if it's in recent analyses
-                    const recentResponse = await fetch('/api/recent');
-                    const recentData = await recentResponse.json();
-                    const recentAnalysis = recentData.find(a => a.fullName === localStorage.getItem('lastAnalyzedRepo'));
-                    
-                    if (recentAnalysis) {
-                        displayAnalysis(recentAnalysis);
-                        return true; // Stop polling
-                    }
-                    throw new Error('Analysis job not found');
-
-                default:
-                    throw new Error('Unknown job status');
+            if (data.status === 'completed' && data.result) {
+                // Analysis completed
+                displayAnalysis(data.result);
+                return;
             }
 
-            return false; // Continue polling
+            // Update queue position display
+            const progress = ((data.total - data.position) / data.total) * 100;
+            resultDiv.innerHTML = `
+                <div class="queue-status">
+                    <div class="queue-position">Position in queue: ${data.position}</div>
+                    <div class="queue-progress">
+                        <div class="progress-bar" style="width: ${progress}%"></div>
+                    </div>
+                    <div class="queue-message">Please wait while we analyze your repository...</div>
+                </div>
+            `;
 
+            // Continue polling
+            setTimeout(checkPosition, 2000);
         } catch (error) {
-            throw error;
+            console.error('Queue position error:', error);
+            resultDiv.innerHTML = `
+                <div class="error">
+                    <p>Error: ${error.message}</p>
+                    <button onclick="analyzeRepo()" class="retry-button">Retry Analysis</button>
+                </div>
+            `;
         }
     };
 
-    // Start polling loop
-    while (true) {
-        const shouldStop = await checkPosition();
-        if (shouldStop) {
-            localStorage.removeItem('currentAnalysisJob');
-            break;
-        }
-        await new Promise(resolve => setTimeout(resolve, 2000));
-    }
+    // Start polling
+    checkPosition();
 }
 
 function displayAnalysis(data) {
