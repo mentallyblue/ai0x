@@ -77,6 +77,24 @@ Confidence: [0-100]%
 - List major considerations
 - Note potential risks and opportunities
 
+## AI Implementation Analysis
+- Identify and list any AI/ML components
+- Evaluate implementation quality and correctness
+- Check for misleading AI claims
+- Assess model integration and usage
+- Verify data processing methods
+- Compare claimed vs actual AI capabilities
+- Note any AI-related security concerns
+- Check for proper model attribution
+- Evaluate AI performance considerations
+
+Rate the AI implementation if present:
+AI Score: [0-100]
+Misleading Level: [None/Low/Medium/High]
+Implementation Quality: [Poor/Basic/Good/Excellent]
+
+Provide specific examples and evidence for any AI-related findings.
+
 # Repository Details
 Repository: ${repoDetails.full_name}
 Description: ${repoDetails.description || 'N/A'}

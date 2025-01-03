@@ -84,6 +84,15 @@ function extractCodeReview(analysis) {
                 rating: '',
                 confidence: 0,
                 reasoning: []
+            },
+            aiAnalysis: {
+                hasAI: false,
+                components: [],
+                score: 0,
+                misleadingLevel: 'None',
+                implementationQuality: 'N/A',
+                concerns: [],
+                details: ''
             }
         };
 
@@ -127,6 +136,45 @@ function extractCodeReview(analysis) {
             }
         }
 
+        // Add AI section extraction
+        const aiSection = analysis.match(/## AI Implementation Analysis\n([\s\S]*?)(?=\n##|$)/);
+        if (aiSection) {
+            const aiText = aiSection[1];
+            
+            // Extract AI components
+            const components = aiText
+                .split('\n')
+                .filter(line => line.trim().startsWith('-'))
+                .map(line => line.trim().replace(/^- /, ''));
+            
+            // Extract AI score
+            const scoreMatch = aiText.match(/AI Score: (\d+)/);
+            const score = scoreMatch ? parseInt(scoreMatch[1]) : 0;
+            
+            // Extract misleading level
+            const misleadingMatch = aiText.match(/Misleading Level: (None|Low|Medium|High)/);
+            const misleadingLevel = misleadingMatch ? misleadingMatch[1] : 'None';
+            
+            // Extract implementation quality
+            const qualityMatch = aiText.match(/Implementation Quality: (Poor|Basic|Good|Excellent)/);
+            const implementationQuality = qualityMatch ? qualityMatch[1] : 'N/A';
+            
+            // Update AI analysis object
+            codeReview.aiAnalysis = {
+                hasAI: components.length > 0,
+                components,
+                score,
+                misleadingLevel,
+                implementationQuality,
+                concerns: components.filter(c => 
+                    c.toLowerCase().includes('concern') || 
+                    c.toLowerCase().includes('issue') ||
+                    c.toLowerCase().includes('misleading')
+                ),
+                details: aiText.trim()
+            };
+        }
+
         return codeReview;
     } catch (error) {
         console.error('Error extracting code review:', error);
@@ -144,11 +192,23 @@ function calculateTrustScore(codeReview) {
             check.toLowerCase().includes('concern')
         ).length;
 
+        // Add AI-specific trust factors
+        const aiMisleadingPenalty = {
+            'None': 0,
+            'Low': 10,
+            'Medium': 20,
+            'High': 30
+        }[codeReview.aiAnalysis.misleadingLevel] || 0;
+
+        const aiConcernsPenalty = codeReview.aiAnalysis.concerns.length * 5;
+
         // Start with 100 and deduct for issues
         let trustScore = 100;
         trustScore -= (redFlagsCount * 15);        // -15 points per red flag
         trustScore -= (larpIndicatorsCount * 10);  // -10 points per LARP indicator
         trustScore -= (misrepresentationCount * 20); // -20 points per misrepresentation
+        trustScore -= aiMisleadingPenalty;         // Penalty for misleading AI claims
+        trustScore -= aiConcernsPenalty;           // -5 points per AI concern
 
         // Ensure score stays between 0 and 100
         return Math.max(0, Math.min(100, trustScore));

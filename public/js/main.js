@@ -117,9 +117,81 @@ function displayAnalysis(data) {
                 </div>
             </div>
 
+            ${createAIAnalysisSection(analysis.codeReview?.aiAnalysis)}
+
             <div class="analysis-content">
                 ${marked.parse(formatAnalysisContent(analysis.fullAnalysis || 'No analysis available'))}
             </div>
+        </div>
+    `;
+}
+
+function createAIAnalysisSection(aiAnalysis) {
+    if (!aiAnalysis || !aiAnalysis.hasAI) {
+        return `
+            <div class="ai-analysis-section">
+                <h2>AI Implementation</h2>
+                <div class="ai-status">No AI components detected in this repository</div>
+            </div>
+        `;
+    }
+
+    const getMisleadingClass = (level) => {
+        const classes = {
+            'None': 'success',
+            'Low': 'warning-low',
+            'Medium': 'warning-medium',
+            'High': 'danger'
+        };
+        return classes[level] || 'neutral';
+    };
+
+    const getQualityClass = (quality) => {
+        const classes = {
+            'Excellent': 'success',
+            'Good': 'good',
+            'Basic': 'warning',
+            'Poor': 'danger'
+        };
+        return classes[quality] || 'neutral';
+    };
+
+    return `
+        <div class="ai-analysis-section">
+            <h2>AI Implementation Analysis</h2>
+            
+            <div class="ai-metrics">
+                <div class="ai-metric">
+                    <span class="metric-label">AI Score</span>
+                    <span class="metric-value ${getScoreClass(aiAnalysis.score)}">${aiAnalysis.score}/100</span>
+                </div>
+                <div class="ai-metric">
+                    <span class="metric-label">Misleading Level</span>
+                    <span class="metric-value ${getMisleadingClass(aiAnalysis.misleadingLevel)}">${aiAnalysis.misleadingLevel}</span>
+                </div>
+                <div class="ai-metric">
+                    <span class="metric-label">Implementation Quality</span>
+                    <span class="metric-value ${getQualityClass(aiAnalysis.implementationQuality)}">${aiAnalysis.implementationQuality}</span>
+                </div>
+            </div>
+
+            ${aiAnalysis.components.length > 0 ? `
+                <div class="ai-components">
+                    <h3>AI Components</h3>
+                    <ul class="component-list">
+                        ${aiAnalysis.components.map(comp => `<li>${comp}</li>`).join('')}
+                    </ul>
+                </div>
+            ` : ''}
+
+            ${aiAnalysis.concerns.length > 0 ? `
+                <div class="ai-concerns">
+                    <h3>Concerns</h3>
+                    <ul class="concern-list">
+                        ${aiAnalysis.concerns.map(concern => `<li class="concern-item">${concern}</li>`).join('')}
+                    </ul>
+                </div>
+            ` : ''}
         </div>
     `;
 }
