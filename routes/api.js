@@ -9,13 +9,13 @@ router.get('/recommendations/:owner/:repo', async (req, res) => {
             return res.status(404).json({ error: 'Repository not found' });
         }
 
-        // Find similar repos based on language and LARP score range
+        // Find similar repos based on language and legitimacy score range
         const similarRepos = await Repository.find({
             _id: { $ne: currentRepo._id },
             language: currentRepo.language,
-            'analysis.larpScore': {
-                $gte: (currentRepo.analysis?.larpScore || 0) - 10,
-                $lte: (currentRepo.analysis?.larpScore || 100) + 10
+            'analysis.finalLegitimacyScore': {
+                $gte: (currentRepo.analysis?.finalLegitimacyScore || 0) - 10,
+                $lte: (currentRepo.analysis?.finalLegitimacyScore || 100) + 10
             }
         })
         .sort({ stars: -1 })
@@ -25,6 +25,106 @@ router.get('/recommendations/:owner/:repo', async (req, res) => {
     } catch (error) {
         console.error('Recommendations error:', error);
         res.status(500).json({ error: 'Failed to fetch recommendations' });
+    }
+});
+
+// Add route to get a single repository analysis
+router.get('/repository/:owner/:repo', async (req, res) => {
+    try {
+        const { owner, repo } = req.params;
+        const analysis = await Repository.findOne({ 
+            owner, 
+            repoName: repo 
+        }).select({
+            fullName: 1,
+            description: 1,
+            language: 1,
+            stars: 1,
+            forks: 1,
+            lastAnalyzed: 1,
+            analysis: 1,  // Select all analysis fields
+            summary: 1
+        });
+
+        if (!analysis) {
+            return res.status(404).json({ error: 'Analysis not found' });
+        }
+
+        // Log the response for debugging
+        console.log('Repository analysis response:', {
+            repo: analysis.fullName,
+            scores: {
+                final: analysis.analysis?.finalLegitimacyScore,
+                technical: analysis.analysis?.legitimacyScore,
+                trust: analysis.analysis?.trustScore
+            }
+        });
+
+        res.json(analysis);
+    } catch (error) {
+        console.error('Error fetching repository analysis:', error);
+        res.status(500).json({ error: 'Failed to fetch repository analysis' });
+    }
+});
+
+// Update the analyses endpoint to include all score data
+router.get('/analyses', async (req, res) => {
+    try {
+        const analyses = await Repository.find()
+            .select({
+                fullName: 1,
+                description: 1,
+                language: 1,
+                stars: 1,
+                forks: 1,
+                lastAnalyzed: 1,
+                'analysis.detailedScores': 1,
+                'analysis.legitimacyScore': 1,
+                'analysis.trustScore': 1,
+                'analysis.finalLegitimacyScore': 1,
+                summary: 1
+            })
+            .sort({ lastAnalyzed: -1 });
+
+        // Add logging to debug
+        console.log('Fetched analyses:', analyses.map(a => ({
+            repo: a.fullName,
+            scores: {
+                final: a.analysis?.finalLegitimacyScore,
+                technical: a.analysis?.legitimacyScore,
+                trust: a.analysis?.trustScore
+            }
+        })));
+
+        res.json(analyses);
+    } catch (error) {
+        console.error('Error fetching analyses:', error);
+        res.status(500).json({ error: 'Failed to fetch analyses' });
+    }
+});
+
+// Update the recent endpoint to include all score data
+router.get('/recent', async (req, res) => {
+    try {
+        console.log('Fetching recent analyses...');
+        
+        const analyses = await Repository.find()
+            .select({
+                fullName: 1,
+                description: 1,
+                language: 1,
+                stars: 1,
+                forks: 1,
+                lastAnalyzed: 1,
+                summary: 1
+            })
+            .sort({ lastAnalyzed: -1 })
+            .limit(10);
+
+        res.json(analyses);
+    } catch (error) {
+        console.error('Error fetching recent analyses:', error);
+        res.status(500).json({ error: 'Failed to fetch recent analyses' });
     }
 });
 

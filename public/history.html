@@ -148,10 +148,10 @@
 
         // Add score class helper function
         function getScoreClass(score) {
-            if (!score) return '';
-            if (score <= 30) return 'score-exceptional';
-            if (score <= 50) return 'score-good';
-            if (score <= 70) return 'score-needs-improvement';
+            if (score === undefined || score === null) return '';
+            if (score >= 80) return 'score-exceptional';
+            if (score >= 60) return 'score-good';
+            if (score >= 40) return 'score-needs-improvement';
             return 'score-critical';
         }
 
@@ -175,7 +175,11 @@
         function updateStats() {
             const totalAnalyses = allAnalyses.length;
             const avgScore = Math.round(
-                allAnalyses.reduce((sum, a) => sum + (a.analysis?.larpScore || 0), 0) / totalAnalyses
+                allAnalyses.reduce((sum, a) => {
+                    const score = a.analysis?.finalLegitimacyScore || 
+                                 a.analysis?.legitimacyScore || 0;
+                    return sum + score;
+                }, 0) / totalAnalyses
             );
             const languages = allAnalyses.reduce((acc, a) => {
                 if (a.language) acc[a.language] = (acc[a.language] || 0) + 1;
@@ -216,13 +220,24 @@
             if (scoreRange !== 'all') {
                 const [min, max] = scoreRange.split('-').map(Number);
                 filtered = filtered.filter(a => {
-                    const score = a.analysis?.larpScore || 0;
+                    const score = a.analysis?.finalLegitimacyScore || 
+                                 a.analysis?.legitimacyScore || 0;
                     return score >= min && score <= max;
                 });
             }
 
-            // Apply sorting
-            filtered = sortAnalyses(filtered, sortBy);
+            // Update sorting to use new legitimacy score
+            if (sortBy === 'score') {
+                filtered.sort((a, b) => {
+                    const scoreA = a.analysis?.finalLegitimacyScore || 
+                                  a.analysis?.legitimacyScore || 0;
+                    const scoreB = b.analysis?.finalLegitimacyScore || 
+                                  b.analysis?.legitimacyScore || 0;
+                    return scoreB - scoreA; // Higher score is better now
+                });
+            } else {
+                filtered = sortAnalyses(filtered, sortBy);
+            }
 
             displayAnalyses(filtered);
             updatePagination(filtered.length);
@@ -236,9 +251,12 @@
 
             grid.innerHTML = pageAnalyses.map(analysis => {
                 const repoName = analysis.fullName;
+                const legitimacyScore = analysis.analysis?.finalLegitimacyScore || 
+                                      analysis.analysis?.legitimacyScore || 0;
                 
                 return `
-                    <div class="analysis-card" onclick="window.location.href='/analysis.html?repo=${analysis.fullName}'">
+                    <div class="analysis-card ${getScoreClass(legitimacyScore)}" 
+                         onclick="window.location.href='/analysis.html?repo=${analysis.fullName}'">
                         <div class="repo-header">
                             <div class="repo-name-section">
                                 <span class="repo-name" title="${repoName}">${repoName}</span>
@@ -256,11 +274,13 @@
                         <div class="repo-description">
                             ${analysis.description || 'No description available'}
                         </div>
-                        <div class="analysis-date">Analyzed: ${new Date(analysis.lastAnalyzed).toLocaleDateString()}</div>
+                        <div class="analysis-date">
+                            Analyzed: ${new Date(analysis.lastAnalyzed).toLocaleDateString()}
+                        </div>
                         <div class="score-summary">
                             <div class="score-row">
-                                <span class="score-label">LARP Score</span>
-                                <span class="score-value">${analysis.analysis?.larpScore || 'N/A'}</span>
+                                <span class="score-label">Legitimacy Score</span>
+                                <span class="score-value">${legitimacyScore}</span>
                             </div>
                             <div class="score-row">
                                 <span class="score-label">Code Quality</span>
@@ -413,10 +433,10 @@
                 <label class="filter-label">Score Range:</label>
                 <select id="scoreSelect" class="filter-select" onchange="applyFilters()">
                     <option value="all">All Scores</option>
-                    <option value="0-30">Exceptional (0-30)</option>
-                    <option value="31-50">Good (31-50)</option>
-                    <option value="51-70">Needs Improvement (51-70)</option>
-                    <option value="71-100">Critical (71-100)</option>
+                    <option value="80-100">Exceptional (80-100)</option>
+                    <option value="60-79">Good (60-79)</option>
+                    <option value="40-59">Needs Improvement (40-59)</option>
+                    <option value="0-39">Critical (0-39)</option>
                 </select>
             </div>
         </div>
@@ -452,7 +472,11 @@
         function updateStats() {
             const totalAnalyses = allAnalyses.length;
             const avgScore = Math.round(
-                allAnalyses.reduce((sum, a) => sum + (a.analysis?.larpScore || 0), 0) / totalAnalyses
+                allAnalyses.reduce((sum, a) => {
+                    const score = a.analysis?.finalLegitimacyScore || 
+                                 a.analysis?.legitimacyScore || 0;
+                    return sum + score;
+                }, 0) / totalAnalyses
             );
             const languages = allAnalyses.reduce((acc, a) => {
                 if (a.language) acc[a.language] = (acc[a.language] || 0) + 1;
@@ -493,13 +517,24 @@
             if (scoreRange !== 'all') {
                 const [min, max] = scoreRange.split('-').map(Number);
                 filtered = filtered.filter(a => {
-                    const score = a.analysis?.larpScore || 0;
+                    const score = a.analysis?.finalLegitimacyScore || 
+                                 a.analysis?.legitimacyScore || 0;
                     return score >= min && score <= max;
                 });
             }
 
-            // Apply sorting
-            filtered = sortAnalyses(filtered, sortBy);
+            // Update sorting to use new legitimacy score
+            if (sortBy === 'score') {
+                filtered.sort((a, b) => {
+                    const scoreA = a.analysis?.finalLegitimacyScore || 
+                                  a.analysis?.legitimacyScore || 0;
+                    const scoreB = b.analysis?.finalLegitimacyScore || 
+                                  b.analysis?.legitimacyScore || 0;
+                    return scoreB - scoreA; // Higher score is better now
+                });
+            } else {
+                filtered = sortAnalyses(filtered, sortBy);
+            }
 
             displayAnalyses(filtered);
             updatePagination(filtered.length);
@@ -513,9 +548,12 @@
 
             grid.innerHTML = pageAnalyses.map(analysis => {
                 const repoName = analysis.fullName;
+                const legitimacyScore = analysis.analysis?.finalLegitimacyScore || 
+                                      analysis.analysis?.legitimacyScore || 0;
                 
                 return `
-                    <div class="analysis-card" onclick="window.location.href='/analysis.html?repo=${analysis.fullName}'">
+                    <div class="analysis-card ${getScoreClass(legitimacyScore)}" 
+                         onclick="window.location.href='/analysis.html?repo=${analysis.fullName}'">
                         <div class="repo-header">
                             <div class="repo-name-section">
                                 <span class="repo-name" title="${repoName}">${repoName}</span>
@@ -533,11 +571,13 @@
                         <div class="repo-description">
                             ${analysis.description || 'No description available'}
                         </div>
-                        <div class="analysis-date">Analyzed: ${new Date(analysis.lastAnalyzed).toLocaleDateString()}</div>
+                        <div class="analysis-date">
+                            Analyzed: ${new Date(analysis.lastAnalyzed).toLocaleDateString()}
+                        </div>
                         <div class="score-summary">
                             <div class="score-row">
-                                <span class="score-label">LARP Score</span>
-                                <span class="score-value">${analysis.analysis?.larpScore || 'N/A'}</span>
+                                <span class="score-label">Legitimacy Score</span>
+                                <span class="score-value">${legitimacyScore}</span>
                             </div>
                             <div class="score-row">
                                 <span class="score-label">Code Quality</span>

@@ -280,15 +280,31 @@ button::after {
     line-height: 1.5;
 }
 
-.larp-score {
-    display: inline-block;
-    background: var(--bg-primary);
+.legitimacy-score {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
     padding: 4px 8px;
+    background: var(--bg-primary);
     border-radius: 4px;
-    color: var(--accent);
-    font-weight: bold;
-    margin-left: 10px;
 }
+
+.legitimacy-score .score-label {
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+.legitimacy-score .score-value {
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.score-value.score-exceptional { color: #22c55e; }
+.score-value.score-good { color: #eab308; }
+.score-value.score-needs-improvement { color: #f97316; }
+.score-value.score-critical { color: #ef4444; }
 
 .loading {
     text-align: center;
@@ -1395,4 +1411,140 @@ section {
     position: absolute;
     left: 0;
     color: var(--accent);
+}
+
+/* Update score display styles */
+.legitimacy-score-display {
+    text-align: center;
+    margin-bottom: 40px;
+    padding: 30px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    transition: all 0.3s ease;
+    background: var(--bg-primary);
+}
+
+.legitimacy-score-display .score-value {
+    font-size: 48px;
+    font-weight: bold;
+    background: var(--gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.legitimacy-score-display .score-label {
+    color: var(--text-secondary);
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-top: 8px;
+}
+
+.score-breakdown {
+    margin-top: 15px;
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+}
+
+.score-detail {
+    color: var(--text-secondary);
+    font-size: 14px;
+    padding: 4px 12px;
+    background: var(--bg-secondary);
+    border-radius: 12px;
+}
+
+/* Update the score classes for the new system */
+.score-exceptional { border-color: #22c55e; }
+.score-good { border-color: #eab308; }
+.score-needs-improvement { border-color: #f97316; }
+.score-critical { border-color: #ef4444; }
+
+/* Add styles for the nav-content section */
+.nav-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+.nav-left {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.nav-right {
+    display: flex;
+    align-items: center;
+}
+
+.github-link {
+    color: var(--text-primary);
+    transition: color 0.3s ease;
+}
+
+.github-link:hover {
+    color: var(--accent);
+}
+
+.repo-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 20px;
+    padding: 20px;
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    border: 1px solid var(--border);
+}
+
+.repo-title h1 {
+    font-size: 24px;
+    color: var(--accent);
+    margin-bottom: 8px;
+}
+
+.repo-description {
+    color: var(--text-secondary);
+    font-size: 14px;
+    margin-bottom: 12px;
+}
+
+.github-button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    text-decoration: none;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    transition: all 0.3s ease;
+}
+
+.github-button:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    transform: translateY(-2px);
+}
+
+.repo-meta {
+    margin-bottom: 20px;
+}
+
+.tech-tag {
+    display: inline-block;
+    padding: 4px 12px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    margin-right: 8px;
+    font-size: 14px;
+    color: var(--text-secondary);
 } 

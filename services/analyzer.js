@@ -4,7 +4,9 @@ const {
     sanitizeCodeContent, 
     getFileExtension,
     extractScores,
-    extractCodeReview 
+    extractCodeReview,
+    calculateTrustScore,
+    calculateFinalLegitimacyScore
 } = require('../utils/analysisUtils');
 const { saveAnalysis } = require('./historyManager');
 
@@ -46,6 +48,34 @@ async function analyzeRepo(repoInfo) {
 - Setup instructions
 - Architecture documentation
 - Usage examples and guides
+
+## Misrepresentation Checks
+- Check for code authenticity
+- Verify claimed features
+- Validate technical claims
+- Cross-reference documentation
+
+## LARP Indicators
+- Code implementation depth
+- Feature completeness
+- Development history
+- Technical consistency
+
+## Red Flags
+- Security concerns
+- Implementation issues
+- Documentation gaps
+- Architectural problems
+
+## Overall Assessment
+Provide a comprehensive evaluation of the project's technical merit, implementation quality, and potential risks.
+
+## Investment Ranking (NFA)
+Rating: [High/Medium/Low]
+Confidence: [0-100]%
+- Include key factors influencing the rating
+- List major considerations
+- Note potential risks and opportunities
 
 # Repository Details
 Repository: ${repoDetails.full_name}
@@ -113,6 +143,8 @@ Provide scores as "Score: X/25" format. Include specific code examples to suppor
         const analysis = analysisResponse.content[0].text;
         const scores = extractScores(analysis);
         const codeReview = extractCodeReview(analysis);
+        const trustScore = calculateTrustScore(codeReview);
+        const finalLegitimacyScore = calculateFinalLegitimacyScore(scores.legitimacyScore, trustScore);
 
         // Generate a more natural, informative summary
         const summaryPrompt = `Given this technical analysis, tell me what's most interesting and notable about this repository in 2-3 conversational sentences. Focus on unique features, technical achievements, or interesting implementation details. Be specific but natural in tone:
@@ -133,16 +165,25 @@ Remember to highlight what makes this repo special or noteworthy from a technica
 
         const summary = summaryResponse.content[0].text.trim();
 
-        // Save to history using the new historyManager
-        await saveAnalysis(repoDetails, { codeReview, fullAnalysis: analysis }, scores, summary);
+        // Save to history
+        await saveAnalysis(repoDetails, {
+            codeReview,
+            fullAnalysis: analysis,
+            trustScore,
+            finalLegitimacyScore
+        }, scores, summary);
 
+        // Return complete analysis object
         return {
             repoDetails: {
                 ...repoDetails,
                 description: summary
             },
             analysis: {
-                ...scores,
+                detailedScores: scores.detailedScores,
+                legitimacyScore: scores.legitimacyScore,
+                trustScore,
+                finalLegitimacyScore,
                 codeReview,
                 fullAnalysis: analysis,
                 summary

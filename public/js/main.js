@@ -100,9 +100,13 @@ function displayAnalysis(data) {
     resultDiv.innerHTML = `
         <div class="analysis-result">
             <div class="score-overview">
-                <div class="larp-score ${getScoreClass(analysis.larpScore)}">
-                    <span class="score-value">${analysis.larpScore || 0}</span>
-                    <span class="score-label">LARP Score</span>
+                <div class="legitimacy-score-display ${getScoreClass(analysis.finalLegitimacyScore)}">
+                    <span class="score-value">${analysis.finalLegitimacyScore || 0}</span>
+                    <span class="score-label">Legitimacy Score</span>
+                    <div class="score-breakdown">
+                        <div class="score-detail">Technical: ${analysis.legitimacyScore || 0}</div>
+                        <div class="score-detail">Trust: ${analysis.trustScore || 0}</div>
+                    </div>
                 </div>
                 
                 <div class="score-grid">
@@ -161,16 +165,8 @@ function getRating(score) {
     return ['Critical Issues', 'critical'];
 }
 
-function formatLarpScore(score) {
+function formatLegitimacyScore(score) {
     if (score === null || score === undefined || isNaN(score)) {
-        const analysisDiv = document.querySelector('.analysis-section');
-        if (analysisDiv) {
-            const text = analysisDiv.textContent;
-            const match = text.match(/LARP Score.*?(\d+)/i);
-            if (match && match[1]) {
-                return parseInt(match[1], 10).toString();
-            }
-        }
         return 'N/A';
     }
     return score.toString();
@@ -181,10 +177,10 @@ async function loadRecentAnalyses() {
         const response = await fetch('/api/recent');
         const analyses = await response.json();
         
+        console.log('Recent analyses data:', analyses);
+        
         const recentList = document.getElementById('recentList');
-        recentList.innerHTML = analyses.map(repo => {
-            const larpScore = repo.analysis?.larpScore;
-            
+        recentList.innerHTML = `<h2>Recent Analyses</h2>` + analyses.map(repo => {
             return `
                 <div class="repo-card" onclick="loadAnalysis('${repo.fullName}')">
                     <h3>${repo.fullName}</h3>
@@ -194,18 +190,11 @@ async function loadRecentAnalyses() {
                         ${repo.language || 'Unknown'} • ${repo.stars || 0} stars
                         <br>
                         Analyzed: ${new Date(repo.lastAnalyzed).toLocaleDateString()}
-                        <span class="larp-score">LARP: ${formatLarpScore(larpScore)}</span>
                     </div>
                 </div>
             `;
         }).join('');
 
-        document.querySelectorAll('.repo-card').forEach(card => {
-            card.addEventListener('click', function() {
-                this.style.opacity = '0.7';
-                setTimeout(() => this.style.opacity = '1', 200);
-            });
-        });
     } catch (error) {
         console.error('Failed to load recent analyses:', error);
         const recentList = document.getElementById('recentList');
@@ -213,26 +202,25 @@ async function loadRecentAnalyses() {
     }
 }
 
-async function loadAnalysis(fullName) {
-    const resultDiv = document.getElementById('result');
-    resultDiv.innerHTML = '<div class="loading">Loading analysis...</div>';
-    
+async function loadAnalysis(repoFullName) {
     try {
-        const [owner, repo] = fullName.split('/');
+        const [owner, repo] = repoFullName.split('/');
         const response = await fetch(`/api/repository/${owner}/${repo}`);
         const data = await response.json();
         
-        if (response.ok) {
-            displayAnalysis({
-                analysis: data.analysis
+        console.log('Loading analysis for', repoFullName, data);
+        
+        if (data && data.analysis) {
+            // Only pass repo name for the title
+            const params = new URLSearchParams({
+                repo: repoFullName
             });
-            resultDiv.scrollIntoView({ behavior: 'smooth' });
+            window.location.href = `/analysis.html?${params.toString()}`;
         } else {
-            resultDiv.innerHTML = `<div class="error">Error: ${data.error}</div>`;
+            throw new Error('Analysis not found');
         }
     } catch (error) {
         console.error('Failed to load analysis:', error);
-        resultDiv.innerHTML = `<div class="error">Failed to load analysis</div>`;
     }
 }
 
@@ -304,9 +292,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Add helper functions for score classes
 function getScoreClass(score) {
-    if (score <= 30) return 'score-exceptional';
-    if (score <= 50) return 'score-good';
-    if (score <= 70) return 'score-needs-improvement';
+    if (score === null || score === undefined || isNaN(score)) {
+        return 'score-unknown';
+    }
+    const numScore = Number(score);
+    if (numScore >= 80) return 'score-exceptional';
+    if (numScore >= 60) return 'score-good';
+    if (numScore >= 40) return 'score-needs-improvement';
     return 'score-critical';
 }
 
@@ -347,24 +339,30 @@ function displayRecentAnalyses(analyses) {
     recentDiv.innerHTML = `
         <h2>Recent Analyses</h2>
         <div class="recent-grid">
-            ${analyses.map(analysis => `
-                <div class="recent-card ${getScoreClass(analysis.analysis?.larpScore)}">
-                    <div class="recent-header">
-                        <h3>${analysis.fullName}</h3>
-                        <span class="recent-score">${analysis.analysis?.larpScore || 'N/A'}</span>
+            ${analyses.map(analysis => {
+                const legitimacyScore = analysis.analysis?.finalLegitimacyScore ?? 
+                                      analysis.analysis?.legitimacyScore ?? 
+                                      (analysis.analysis?.larpScore ?? 0);
+                
+                return `
+                    <div class="recent-card ${getScoreClass(legitimacyScore)}">
+                        <div class="recent-header">
+                            <h3>${analysis.fullName}</h3>
+                            <span class="recent-score">${legitimacyScore}</span>
+                        </div>
+                        <div class="recent-description">
+                            ${analysis.description || 'No description available'}
+                        </div>
+                        <div class="recent-summary">
+                            ${analysis.summary || 'Analysis summary not available'}
+                        </div>
+                        <div class="recent-meta">
+                            <span class="tech-tag">${analysis.language || 'Unknown'}</span>
+                            <span class="tech-tag">⭐ ${analysis.stars || 0}</span>
+                        </div>
                     </div>
-                    <div class="recent-description">
-                        ${analysis.description || 'No description available'}
-                    </div>
-                    <div class="recent-summary">
-                        ${analysis.summary || 'Analysis summary not available'}
-                    </div>
-                    <div class="recent-meta">
-                        <span class="tech-tag">${analysis.language || 'Unknown'}</span>
-                        <span class="tech-tag">⭐ ${analysis.stars || 0}</span>
-                    </div>
-                </div>
-            `).join('')}
+                `;
+            }).join('')}
         </div>
     `;
 }
@@ -384,8 +382,9 @@ function sortAnalyses(analyses, sortBy) {
             case 'date':
                 return new Date(b.lastAnalyzed) - new Date(a.lastAnalyzed);
             case 'score':
-                // Lower score is better, so reverse the comparison
-                return (a.analysis?.larpScore || 0) - (b.analysis?.larpScore || 0);
+                const scoreA = a.analysis?.finalLegitimacyScore ?? Number.MAX_VALUE;
+                const scoreB = b.analysis?.finalLegitimacyScore ?? Number.MAX_VALUE;
+                return scoreA - scoreB;
             case 'stars':
                 return (b.stars || 0) - (a.stars || 0);
             default:
@@ -401,34 +400,46 @@ function displayAnalyses(analyses) {
     const end = start + PAGE_SIZE;
     const pageAnalyses = analyses.slice(start, end);
 
-    grid.innerHTML = pageAnalyses.map(analysis => `
-        <div class="analysis-card ${getScoreClass(analysis.analysis?.larpScore)}" 
-             onclick="window.location.href='/analysis.html?repo=${analysis.fullName}'">
-            <div class="recent-header">
-                <h3 class="repo-name">${analysis.fullName}</h3>
-                <span class="recent-score">${analysis.analysis?.larpScore || 'N/A'}</span>
-            </div>
-            <div class="recent-description">
-                ${analysis.description || 'No description available'}
-            </div>
-            <div class="recent-summary">
-                ${analysis.summary || 'Analysis summary not available'}
-            </div>
-            <div class="score-summary">
-                <div class="score-row">
-                    <span class="score-label">Code Quality</span>
-                    <span class="score-value">${analysis.analysis?.detailedScores?.codeQuality || 'N/A'}/25</span>
+    grid.innerHTML = pageAnalyses.map(analysis => {
+        const repoName = analysis.fullName;
+        // Remove old larpScore reference and use finalLegitimacyScore directly
+        const legitimacyScore = analysis.analysis?.finalLegitimacyScore || 0;
+        const technicalScore = analysis.analysis?.legitimacyScore || 0;
+        const trustScore = analysis.analysis?.trustScore || 0;
+        
+        return `
+            <div class="analysis-card ${getScoreClass(legitimacyScore)}" 
+                 onclick="window.location.href='/analysis.html?repo=${analysis.fullName}'">
+                <div class="recent-header">
+                    <h3 class="repo-name">${analysis.fullName}</h3>
+                    <span class="recent-score">${legitimacyScore}</span>
                 </div>
-                <div class="score-row">
-                    <span class="score-label">Implementation</span>
-                    <span class="score-value">${analysis.analysis?.detailedScores?.implementation || 'N/A'}/25</span>
+                <div class="recent-description">
+                    ${analysis.description || 'No description available'}
+                </div>
+                <div class="recent-summary">
+                    ${analysis.summary || 'Analysis summary not available'}
+                </div>
+                <div class="score-summary">
+                    <div class="score-row">
+                        <span class="score-label">Legitimacy Score</span>
+                        <span class="score-value ${getScoreClass(legitimacyScore)}">${legitimacyScore}</span>
+                    </div>
+                    <div class="score-row">
+                        <span class="score-label">Technical Score</span>
+                        <span class="score-value">${technicalScore}</span>
+                    </div>
+                    <div class="score-row">
+                        <span class="score-label">Trust Score</span>
+                        <span class="score-value">${trustScore}</span>
+                    </div>
+                </div>
+                <div class="tech-tags">
+                    <span class="tech-tag">${analysis.language || 'Unknown'}</span>
+                    <span class="tech-tag">⭐ ${analysis.stars || 0}</span>
+                    <span class="tech-tag">🔄 ${analysis.forks || 0}</span>
                 </div>
             </div>
-            <div class="tech-tags">
-                <span class="tech-tag">${analysis.language || 'Unknown'}</span>
-                <span class="tech-tag">⭐ ${analysis.stars || 0}</span>
-                <span class="tech-tag">🔄 ${analysis.forks || 0}</span>
-            </div>
-        </div>
-    `).join('');
+        `;
+    }).join('');
 } 
