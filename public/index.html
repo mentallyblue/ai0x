@@ -4,9 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI0x | Repository Analyzer</title>
-    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    
+    <!-- Preload font to prevent FOUT (Flash of Unstyled Text) -->
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" as="style">
+    <link rel="preload" href="https://fonts.gstatic.com/s/jetbrainsmono/v13/tDbY2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKxTOlOV.woff2" as="font" type="font/woff2" crossorigin>
+    
+    <!-- Regular font loading -->
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap">
     <link rel="stylesheet" href="/css/styles.css">
+    
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="/js/main.js" defer></script>
     <link rel="icon" type="image/x-icon" href="/images/image.jpg">
@@ -42,7 +49,9 @@
             <h2>Analyze GitHub Repository</h2>
             <input type="text" id="repoUrl" placeholder="Enter GitHub repository URL" 
                    value="">
-            <button id="analyzeButton">Analyze Repository</button>
+            <button id="analyzeButton" class="analyze-button">
+                Analyze Repository
+            </button>
         </div>
 
         <div id="result"></div>

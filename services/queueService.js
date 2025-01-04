@@ -10,6 +10,7 @@ class InMemoryQueue extends EventEmitter {
         this.jobResults = new Map();
         this.jobRetries = new Map();
         this.isProcessing = false;
+        this.processingJobs = new Set(); // Track concurrent jobs
         
         // Start queue processing and cleanup
         this.startProcessing();
@@ -35,13 +36,27 @@ class InMemoryQueue extends EventEmitter {
             data,
             status: 'waiting',
             addedAt: Date.now(),
+            priority: data.priority || 0,
             timeout: setTimeout(() => this.handleJobTimeout(jobId), 
                               config.QUEUE_CONFIG.jobTimeout)
         };
 
-        this.queue.push(job);
+        // Insert job in priority order
+        const insertIndex = this.queue.findIndex(j => j.priority <= job.priority);
+        if (insertIndex === -1) {
+            this.queue.push(job);
+        } else {
+            this.queue.splice(insertIndex, 0, job);
+        }
+
         this.broadcastQueueSize();
-        
+
+        // Broadcast new job added
+        global.io?.emit('globalQueueUpdate', {
+            event: 'new_analysis',
+            repo: data.repoFullName
+        });
+
         return jobId;
     }
 
@@ -58,16 +73,19 @@ class InMemoryQueue extends EventEmitter {
         const retries = this.jobRetries.get(job.id) || 0;
         
         if (retries < config.QUEUE_CONFIG.maxRetries) {
-            // Retry the job
+            // Retry the job with exponential backoff
             this.jobRetries.set(job.id, retries + 1);
+            const backoffDelay = config.QUEUE_CONFIG.retryDelay * Math.pow(2, retries);
+            
             setTimeout(() => {
                 this.queue.push({
                     ...job,
                     status: 'waiting',
-                    addedAt: Date.now()
+                    addedAt: Date.now(),
+                    priority: job.priority - 1 // Slightly decrease priority on retry
                 });
                 this.broadcastQueueSize();
-            }, config.QUEUE_CONFIG.retryDelay);
+            }, backoffDelay);
         } else {
             // Mark as failed after max retries
             this.jobResults.set(job.id, {
@@ -81,56 +99,62 @@ class InMemoryQueue extends EventEmitter {
 
     async processQueue() {
         while (this.isProcessing) {
-            if (this.active || this.queue.length === 0) {
+            // Check if we can process more jobs
+            if (this.processingJobs.size >= config.QUEUE_CONFIG.maxConcurrent || 
+                this.queue.length === 0) {
                 await new Promise(resolve => setTimeout(resolve, 1000));
                 continue;
             }
 
-            this.active = this.queue.shift();
+            const job = this.queue.shift();
+            this.processingJobs.add(job.id);
             this.broadcastQueueSize();
 
-            try {
-                clearTimeout(this.active.timeout);
-                const result = await this.processJob(this.active.data);
-                this.jobResults.set(this.active.id, {
-                    ...result,
-                    timestamp: Date.now(),
-                    status: 'completed'
-                });
-            } catch (error) {
-                console.error('Job processing error:', error);
-                await this.handleJobFailure(this.active, error);
-            } finally {
-                this.active = null;
+            // Process job asynchronously
+            this.processJob(job).catch(error => {
+                console.error(`Error processing job ${job.id}:`, error);
+            }).finally(() => {
+                this.processingJobs.delete(job.id);
                 this.broadcastQueueSize();
-            }
+            });
         }
     }
 
-    startCleanup() {
-        setInterval(() => {
-            const now = Date.now();
+    async processJob(job) {
+        try {
+            // Broadcast when job starts processing
+            global.io?.emit('globalQueueUpdate', {
+                event: 'processing_started',
+                repo: job.data.repoFullName
+            });
+
+            clearTimeout(job.timeout);
+            const { analyzeRepo } = require('./analyzer');
+            const [owner, repo] = job.data.repoFullName.split('/');
             
-            // Clean up old results
-            for (const [jobId, result] of this.jobResults) {
-                if (now - result.timestamp > config.QUEUE_CONFIG.resultsTTL) {
-                    this.jobResults.delete(jobId);
-                }
-            }
+            const result = await analyzeRepo({ owner, repo });
+            
+            this.jobResults.set(job.id, {
+                ...result,
+                timestamp: Date.now(),
+                status: 'completed'
+            });
 
-            // Clean up retry counters for completed jobs
-            for (const [jobId] of this.jobRetries) {
-                if (this.jobResults.has(jobId)) {
-                    this.jobRetries.delete(jobId);
-                }
-            }
-        }, config.QUEUE_CONFIG.cleanupInterval);
-    }
+            // Broadcast when job completes
+            global.io?.emit('globalQueueUpdate', {
+                event: 'analysis_complete',
+                repo: job.data.repoFullName
+            });
 
-    broadcastQueueSize() {
-        const size = this.queue.length + (this.active ? 1 : 0);
-        if (global.io) {
-            global.io.emit('queueUpdate', { size });
+            // Broadcast completion
+            global.io?.emit('analysisComplete', {
+                jobId: job.id,
+                result: result
+            });
+
+            return result;
+        } catch (error) {
+            await this.handleJobFailure(job, error);
         }
     }
 
@@ -139,17 +163,17 @@ class InMemoryQueue extends EventEmitter {
         if (this.jobResults.has(jobId)) {
             return {
                 position: 0,
-                total: this.queue.length + (this.active ? 1 : 0),
+                total: this.getTotalJobs(),
                 status: 'completed',
                 result: this.jobResults.get(jobId)
             };
         }
 
-        // Check if job is active
-        if (this.active && this.active.id === jobId) {
+        // Check if job is processing
+        if (this.processingJobs.has(jobId)) {
             return {
                 position: 0,
-                total: this.queue.length + 1,
+                total: this.getTotalJobs(),
                 status: 'processing'
             };
         }
@@ -159,36 +183,61 @@ class InMemoryQueue extends EventEmitter {
         if (position === -1) {
             return {
                 position: -1,
-                total: this.queue.length + (this.active ? 1 : 0),
+                total: this.getTotalJobs(),
                 status: 'not_found'
             };
         }
 
         return {
             position: position + 1,
-            total: this.queue.length + (this.active ? 1 : 0),
+            total: this.getTotalJobs(),
             status: 'waiting'
         };
     }
 
-    async processJob(data) {
-        try {
-            const { analyzeRepo } = require('./analyzer');
-            const [owner, repo] = data.repoFullName.split('/');
-            const result = await analyzeRepo({ owner, repo });
-            return {
-                ...result,
-                timestamp: Date.now(),
-                status: 'completed'
+    getTotalJobs() {
+        return this.queue.length + this.processingJobs.size;
+    }
+
+    broadcastQueueSize() {
+        if (global.io) {
+            const queueStats = {
+                size: this.getTotalJobs(),
+                processing: this.processingJobs.size,
+                waiting: this.queue.length,
+                positions: {}
             };
-        } catch (error) {
-            console.error('Job processing error:', error);
-            return {
-                error: error.message,
-                timestamp: Date.now(),
-                status: 'failed'
-            };
+
+            // Get positions for all jobs in queue
+            this.queue.forEach((job, index) => {
+                queueStats.positions[job.id] = index + 1;
+            });
+
+            // Add processing jobs as position 0
+            this.processingJobs.forEach(job => {
+                queueStats.positions[job.id] = 0;
+            });
+
+            global.io.emit('queueUpdate', queueStats);
         }
+    }
+
+    startCleanup() {
+        setInterval(() => {
+            const now = Date.now();
+            // Clean up old results
+            for (const [jobId, result] of this.jobResults) {
+                if (now - result.timestamp > config.QUEUE_CONFIG.resultsTTL) {
+                    this.jobResults.delete(jobId);
+                }
+            }
+            // Clean up retry counters for completed jobs
+            for (const [jobId] of this.jobRetries) {
+                if (this.jobResults.has(jobId)) {
+                    this.jobRetries.delete(jobId);
+                }
+            }
+        }, config.QUEUE_CONFIG.cleanupInterval);
     }
 }
 
@@ -197,38 +246,21 @@ const queueInstance = new InMemoryQueue();
 
 // Export queue interface
 const queueTracker = {
-    async addToQueue(repoFullName) {
-        try {
-            return await queueInstance.add({ repoFullName });
-        } catch (error) {
-            console.error('Failed to add to queue:', error);
-            throw new Error('Queue is currently full. Please try again later.');
-        }
+    async addToQueue(repoFullName, priority = 0) {
+        return queueInstance.add({ repoFullName, priority });
     },
 
     async getQueuePosition(jobId) {
-        try {
-            return await queueInstance.getPosition(jobId);
-        } catch (error) {
-            console.error('Failed to get queue position:', error);
-            throw new Error('Failed to get job status');
-        }
+        return queueInstance.getPosition(jobId);
     },
 
     getQueueStats() {
-        const active = queueInstance.active ? 1 : 0;
-        const waiting = queueInstance.queue.length;
-        const completed = queueInstance.jobResults.size;
-        
         return {
-            active,
-            waiting,
-            completed,
-            total: active + waiting
+            waiting: queueInstance.queue.length,
+            processing: queueInstance.processingJobs.size,
+            total: queueInstance.getTotalJobs()
         };
     }
 };
 
-module.exports = {
-    queueTracker
-}; 
+module.exports = { queueTracker }; 

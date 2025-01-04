@@ -19,6 +19,15 @@ module.exports = {
         cleanupInterval: 60 * 1000,  // Cleanup every minute
         resultsTTL: 60 * 60 * 1000,  // Keep results for 1 hour
         maxRetries: 3,               // Maximum retries per job
-        retryDelay: 5000            // 5 seconds between retries
+        retryDelay: 5000,            // 5 seconds between retries
+        maxConcurrent: 10,     // Maximum concurrent processing
+        priorities: {
+            default: 0,
+            premium: 1,
+            urgent: 2
+        }
+    },
+    REDIS_CONFIG: {
+        retryStrategy: (times) => Math.min(times * 50, 2000)
     }
 }; 

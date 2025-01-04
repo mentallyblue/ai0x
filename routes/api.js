@@ -1,4 +1,5 @@
 const { queueTracker, analysisQueue } = require('../services/queueService');
+const { queueLimiter, oneAnalysisPerIP, removeAnalysis } = require('../middleware/rateLimiter');
 
 router.get('/recommendations/:owner/:repo', async (req, res) => {
     try {
@@ -129,14 +130,15 @@ router.get('/recent', async (req, res) => {
 });
 
 // Update the analyze endpoint
-router.post('/analyze', async (req, res) => {
+router.post('/analyze', queueLimiter, oneAnalysisPerIP, async (req, res) => {
+    const clientIP = req.ip;
     try {
         const { repoUrl } = req.body;
         if (!repoUrl) {
+            removeAnalysis(clientIP);
             return res.status(400).json({ error: 'Repository URL is required' });
         }
 
-        // Add logging to debug
         console.log('Analyzing repo URL:', repoUrl);
         
         const repoInfo = parseGitHubUrl(repoUrl);
@@ -144,13 +146,43 @@ router.post('/analyze', async (req, res) => {
             return res.status(400).json({ error: 'Invalid GitHub repository URL' });
         }
 
-        // Add to queue
+        // Check for existing analysis that's less than 24 hours old
+        const existingAnalysis = await Repository.findOne({
+            owner: repoInfo.owner,
+            repoName: repoInfo.repo,
+            lastAnalyzed: { 
+                $gt: new Date(Date.now() - 24 * 60 * 60 * 1000) // 24 hours ago
+            }
+        });
+
+        if (existingAnalysis) {
+            console.log('Found recent analysis, returning cached result');
+            removeAnalysis(clientIP); // Remove from tracking since we're using cached
+            return res.json({ 
+                cached: true,
+                result: {
+                    repoDetails: {
+                        fullName: existingAnalysis.fullName,
+                        description: existingAnalysis.description,
+                        language: existingAnalysis.language,
+                        stars: existingAnalysis.stars,
+                        forks: existingAnalysis.forks
+                    },
+                    analysis: existingAnalysis.analysis
+                }
+            });
+        }
+
+        // If no recent analysis exists, proceed with queue
         const jobId = await queueTracker.addToQueue(`${repoInfo.owner}/${repoInfo.repo}`);
         console.log('Added to queue with jobId:', jobId);
         
+        queueTracker.trackAnalysis(jobId, clientIP);
+        
         res.json({ jobId });
     } catch (error) {
-        console.error('Analysis error:', error); // Add detailed error logging
+        removeAnalysis(clientIP);
+        console.error('Analysis error:', error);
         res.status(500).json({ 
             error: error.message || 'Failed to analyze repository',
             details: process.env.NODE_ENV === 'development' ? error.stack : undefined

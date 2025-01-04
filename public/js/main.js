@@ -1,12 +1,24 @@
 async function analyzeRepo() {
+    const analyzeButton = document.getElementById('analyzeButton');
+    
+    if (analyzeButton.disabled || window.activeJobId) {
+        console.log('Analysis already in progress');
+        return;
+    }
+
     const repoUrl = document.getElementById('repoUrl').value.trim();
+    
     if (!repoUrl) {
         alert('Please enter a GitHub repository URL');
         return;
     }
 
+    analyzeButton.disabled = true;
+    analyzeButton.classList.add('processing');
+    analyzeButton.innerHTML = '<span class="spinner"></span> Processing...';
+
     const resultDiv = document.getElementById('result');
-    resultDiv.innerHTML = '<div class="loading">Adding to analysis queue...</div>';
+    resultDiv.innerHTML = '<div class="loading">Checking repository status...</div>';
 
     try {
         const response = await fetch('/api/analyze', {
@@ -23,10 +35,20 @@ async function analyzeRepo() {
             throw new Error(data.error || 'Failed to analyze repository');
         }
 
-        if (!data || !data.jobId) {
+        // Handle cached results
+        if (data.cached && data.result) {
+            console.log('Loading cached analysis');
+            displayAnalysis(data.result);
+            enableAnalyzeButton();
+            return;
+        }
+
+        // Handle new analysis request
+        if (!data.jobId) {
             throw new Error('Invalid response from server');
         }
 
+        window.activeJobId = data.jobId;
         console.log('Successfully queued analysis with jobId:', data.jobId);
         pollQueuePosition(data.jobId);
 
@@ -39,7 +61,16 @@ async function analyzeRepo() {
                 <button onclick="analyzeRepo()" class="retry-button">Retry</button>
             </div>
         `;
+        enableAnalyzeButton();
+        window.activeJobId = null;
     }
+}
+
+function enableAnalyzeButton() {
+    const analyzeButton = document.getElementById('analyzeButton');
+    analyzeButton.disabled = false;
+    analyzeButton.classList.remove('processing');
+    analyzeButton.innerHTML = 'Analyze Repository';
 }
 
 async function pollQueuePosition(jobId) {
@@ -55,11 +86,12 @@ async function pollQueuePosition(jobId) {
             }
 
             if (data.status === 'failed') {
+                enableAnalyzeButton(); // Re-enable on failure
                 throw new Error(data.error || 'Analysis failed');
             }
 
             if (data.status === 'completed' && data.result) {
-                // Analysis completed
+                enableAnalyzeButton(); // Re-enable on completion
                 displayAnalysis(data.result);
                 return;
             }
@@ -529,43 +561,144 @@ function displayAnalyses(analyses) {
     }).join('');
 }
 
-// Update the queue status header with more detailed information
-function updateQueueHeader(queueSize) {
+// Update the queue status header with global information
+function updateQueueHeader(queueData) {
     const queueStatusHeader = document.getElementById('queueStatusHeader');
     if (!queueStatusHeader) return;
 
-    const statusClass = queueSize > 0 ? 'queue-active' : 'queue-idle';
+    const { size, processing, waiting, status } = queueData;
+    const statusClass = status === 'offline' ? 'queue-offline' : 
+                       size > 0 ? 'queue-active' : 'queue-idle';
+    
     queueStatusHeader.innerHTML = `
         <div class="queue-status-content ${statusClass}">
-            <span class="queue-count">Queue: ${queueSize}</span>
+            <div class="queue-stats">
+                <span class="queue-count">Queue: ${size || 0}</span>
+                <div class="queue-details">
+                    ${processing ? `<span class="processing-count">${processing} active</span>` : ''}
+                    ${waiting ? `<span class="waiting-count">${waiting} waiting</span>` : ''}
+                    ${!processing && !waiting ? '<span class="waiting-count">No active jobs</span>' : ''}
+                </div>
+            </div>
             <span class="queue-indicator"></span>
         </div>
     `;
 }
 
-// Update the socket.io connection handler
+// Update socket.io connection handler
 try {
     const socket = io();
-    socket.on('queueUpdate', (data) => {
-        updateQueueHeader(data.size);
-    });
+    window.activeJobId = null; // Track active job ID globally
     
     socket.on('connect', () => {
         console.log('Connected to queue updates');
-        updateQueueHeader(0); // Reset on connect
+        // Request initial queue state
+        socket.emit('requestQueueState');
+    });
+
+    socket.on('queueUpdate', (data) => {
+        // Ensure we have default values if any property is undefined
+        const queueData = {
+            size: data.size || 0,
+            processing: data.processing || 0,
+            waiting: data.waiting || 0,
+            positions: data.positions || {}
+        };
+        
+        updateQueueHeader(queueData);
+        
+        // If there's an active job, update its display
+        if (window.activeJobId) {
+            updateActiveJobDisplay(queueData);
+        }
+    });
+
+    socket.on('analysisComplete', (data) => {
+        // Update recent analyses when any analysis completes
+        updateRecentAnalyses();
+        
+        // If it's our analysis, display it
+        if (data.jobId === window.activeJobId) {
+            displayAnalysis(data.result);
+            window.activeJobId = null;
+            enableAnalyzeButton();
+        }
     });
     
     socket.on('disconnect', () => {
         console.log('Disconnected from queue updates');
-        document.getElementById('queueStatusHeader').innerHTML = 
-            '<span class="queue-count queue-offline">Queue: Offline</span>';
+        updateQueueHeader({
+            size: 0,
+            processing: 0,
+            waiting: 0,
+            status: 'offline'
+        });
     });
 } catch (error) {
     console.error('Socket.IO initialization error:', error);
-    if (queueStatusHeader) {
-        queueStatusHeader.innerHTML = '<span class="queue-count">Queue: Offline</span>';
+}
+
+// Add function to update active job display
+function updateActiveJobDisplay(queueData) {
+    const resultDiv = document.getElementById('result');
+    const position = queueData.positions[window.activeJobId];
+    
+    if (position !== undefined) {
+        const progress = ((queueData.size - position) / queueData.size) * 100;
+        resultDiv.innerHTML = `
+            <div class="queue-status">
+                <div class="queue-position">
+                    ${position === 0 ? 
+                        '<span class="processing-badge">Processing</span>' : 
+                        `Position in queue: ${position} of ${queueData.size}`
+                    }
+                </div>
+                <div class="queue-progress">
+                    <div class="progress-bar" style="width: ${progress}%"></div>
+                </div>
+                <div class="queue-details">
+                    ${position === 0 ? 
+                        '<span class="queue-eta">Analysis in progress...</span>' :
+                        `<span class="queue-eta">Estimated wait: ${formatTime(position * 30)}</span>`
+                    }
+                </div>
+                <div class="queue-message">
+                    ${getQueueMessage(position)}
+                </div>
+            </div>
+        `;
     }
-} 
+}
+
+// Add function to update recent analyses
+async function updateRecentAnalyses() {
+    try {
+        const response = await fetch('/api/recent');
+        const analyses = await response.json();
+        
+        const recentList = document.getElementById('recentList');
+        if (!recentList) return;
+
+        recentList.innerHTML = analyses.map(analysis => `
+            <div class="repo-card">
+                <h3>${analysis.fullName}</h3>
+                <p>${analysis.description || 'No description available'}</p>
+                <div class="repo-meta">
+                    ${analysis.language ? `<span class="language">${analysis.language}</span>` : ''}
+                    <span class="stars">⭐ ${analysis.stars || 0}</span>
+                </div>
+                <div class="analysis-time">
+                    Analyzed: ${new Date(analysis.lastAnalyzed).toLocaleString()}
+                </div>
+            </div>
+        `).join('');
+    } catch (error) {
+        console.error('Error updating recent analyses:', error);
+    }
+}
+
+// Call updateRecentAnalyses initially
+document.addEventListener('DOMContentLoaded', updateRecentAnalyses);
 
 function formatTime(seconds) {
     if (seconds < 60) return `${seconds} seconds`;
@@ -583,5 +716,26 @@ function getQueueMessage(position) {
         'Analyzing repositories thoroughly takes time.',
         'Get ready for a detailed analysis!'
     ];
-    return messages[position % messages.length];
+}
+
+function showToast(message) {
+    let container = document.querySelector('.toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.className = 'toast-container';
+        document.body.appendChild(container);
+    }
+
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.textContent = message;
+    container.appendChild(toast);
+
+    // Remove toast after 5 seconds
+    setTimeout(() => {
+        toast.remove();
+        if (container.children.length === 0) {
+            container.remove();
+        }
+    }, 5000);
 } 

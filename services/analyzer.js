@@ -151,7 +151,7 @@ Provide scores as "Score: X/25" format. Include specific code examples to suppor
         const analysisResponse = await anthropic.messages.create({
             model: 'claude-3-5-sonnet-20241022',
             max_tokens: 4000,
-            temperature: 0.7,
+            temperature: 0.3,
             messages: [{ 
                 role: 'user', 
                 content: `You are a technical code reviewer. Analyze this repository and provide a detailed assessment. Start directly with the scores and analysis without any introductory text.\n\n${analysisPrompt}` 
@@ -165,7 +165,7 @@ Provide scores as "Score: X/25" format. Include specific code examples to suppor
         const finalLegitimacyScore = calculateFinalLegitimacyScore(scores.legitimacyScore, trustScore);
 
         // Generate a more natural, informative summary
-        const summaryPrompt = `Given this technical analysis, tell me what's most interesting and notable about this repository in 2-3 conversational sentences. Focus on unique features, technical achievements, or interesting implementation details. Be specific but natural in tone:
+        const summaryPrompt = `Given this technical analysis, tell me what's most interesting and notable about this repository in 1-2 conversational sentences. Focus on unique features, technical achievements, or interesting implementation details. Be specific but natural in tone:
 
 ${analysis}
 
@@ -174,7 +174,7 @@ Remember to highlight what makes this repo special or noteworthy from a technica
         const summaryResponse = await anthropic.messages.create({
             model: 'claude-3-5-sonnet-20241022',
             max_tokens: 300,
-            temperature: 0.9, // Higher temperature for more creative/varied responses
+            temperature: 0.7, // Higher temperature for more creative/varied responses
             messages: [{ 
                 role: 'user', 
                 content: summaryPrompt

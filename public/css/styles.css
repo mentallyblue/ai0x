@@ -1,3 +1,19 @@
+@font-face {
+    font-family: 'JetBrains Mono';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url(https://fonts.gstatic.com/s/jetbrainsmono/v13/tDbY2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKxTOlOV.woff2) format('woff2');
+}
+
+@font-face {
+    font-family: 'JetBrains Mono';
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    src: url(https://fonts.gstatic.com/s/jetbrainsmono/v13/tDbY2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8L6tTOlOV.woff2) format('woff2');
+}
+
 :root {
     --bg-primary: #0a0a0b;
     --bg-secondary: #13131f;
@@ -41,19 +57,19 @@ body {
     max-width: 1200px;
     margin: 0 auto;
     padding: 0 20px;
-    height: 80px;
+    height: 100px;
 }
 
 .logo {
     display: flex;
     align-items: center;
     text-decoration: none;
-    gap: 12px;
+    gap: 16px;
 }
 
 .logo-text {
     color: var(--accent);
-    font-size: 20px;
+    font-size: 30px;
     font-weight: bold;
 }
 
@@ -806,10 +822,10 @@ button::after {
 
 /* Add these styles for the logo image */
 .logo-img {
-    width: 32px;
-    height: 32px;
+    width: 48px;
+    height: 48px;
     border-radius: 50%;
-    object-fit: cover;
+    transition: transform 0.2s ease;
 }
 
 .logo {
@@ -1631,69 +1647,82 @@ section {
 }
 
 /* Enhanced Queue Status Styles */
+.queue-status-header {
+    background: var(--bg-secondary);
+    padding: 8px 16px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    margin-left: 15px;
+    min-width: 180px;
+}
+
 .queue-status-content {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 12px;
+    position: relative;
 }
 
-.queue-indicator {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--text-secondary);
+.queue-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
 }
 
-.queue-active .queue-indicator {
-    background: var(--accent);
-    animation: pulse 2s infinite;
-}
-
-.queue-idle .queue-indicator {
-    background: var(--success);
-}
-
-.queue-offline .queue-indicator {
-    background: var(--error);
-}
-
-@keyframes pulse {
-    0% { opacity: 1; }
-    50% { opacity: 0.4; }
-    100% { opacity: 1; }
-}
-
-.processing-badge {
-    background: var(--accent);
-    color: var(--bg-primary);
-    padding: 4px 12px;
-    border-radius: 12px;
+.queue-count {
+    color: var(--text-primary);
     font-size: 0.9em;
-    font-weight: 500;
-    animation: pulse 2s infinite;
+    font-weight: 600;
 }
 
 .queue-details {
     display: flex;
-    justify-content: center;
-    gap: 16px;
-    margin: 12px 0;
-    color: var(--text-secondary);
-    font-size: 0.9em;
+    gap: 12px;
+    font-size: 0.75em;
 }
 
-.queue-eta {
+.processing-count {
+    color: var(--accent);
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
 }
 
-.queue-eta::before {
-    content: "🕒";
-    font-size: 1.1em;
+.processing-count::before {
+    content: "●";
+    color: var(--accent);
+    animation: pulse 2s infinite;
 }
 
-/* Improved Progress Bar */
+.waiting-count {
+    color: var(--text-secondary);
+    opacity: 0.8;
+}
+
+.queue-indicator {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    margin-left: auto;
+}
+
+.queue-active .queue-indicator {
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+    animation: pulse 2s infinite;
+}
+
+.queue-idle .queue-indicator {
+    background: #22c55e;
+    box-shadow: 0 0 8px rgba(34, 197, 94, 0.4);
+}
+
+.queue-offline .queue-indicator {
+    background: var(--error);
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.4);
+}
+
+/* Queue Progress Styles */
 .queue-progress {
     height: 6px;
     background: var(--bg-primary);
@@ -1705,7 +1734,7 @@ section {
 
 .progress-bar {
     height: 100%;
-    background: linear-gradient(90deg, var(--accent) 0%, var(--accent-light) 100%);
+    background: var(--gradient);
     transition: width 0.8s ease;
     position: relative;
     overflow: hidden;
@@ -1728,6 +1757,52 @@ section {
 }
 
 @keyframes shimmer {
-    0% { transform: translateX(-100%); }
-    100% { transform: translateX(100%); }
-} 
+    from { transform: translateX(-100%); }
+    to { transform: translateX(100%); }
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.4; }
+    100% { opacity: 1; }
+}
+
+/* Queue Position Display */
+.queue-position {
+    font-size: 0.9em;
+    margin-bottom: 8px;
+    color: var(--text-primary);
+}
+
+.processing-badge {
+    display: inline-flex;
+    align-items: center;
+    background: var(--accent);
+    color: var(--bg-primary);
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.85em;
+    font-weight: 500;
+}
+
+.processing-badge::before {
+    content: "●";
+    margin-right: 6px;
+    animation: pulse 2s infinite;
+}
+
+.queue-eta {
+    font-size: 0.85em;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.queue-message {
+    font-size: 0.85em;
+    color: var(--text-secondary);
+    margin-top: 8px;
+    text-align: center;
+    font-style: italic;
+}
