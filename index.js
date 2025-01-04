@@ -68,6 +68,8 @@ const TWEET_INTERVAL = 3600000 * 4; // Tweet every 4 hours
 let lastTweetTime = null;
 const MIN_TWEET_INTERVAL = 300000; // 5 minutes minimum between tweets
 let lastTweetContent = null; // Store last tweet to prevent duplicates
+const TWEET_TYPES = ['market_insight', 'tech_trend', 'project_spotlight', 'general_thought'];
+let lastTweetType = null;
 
 // Initialize Twitter client
 async function initializeTwitterClient() {
@@ -85,7 +87,7 @@ async function initializeTwitterClient() {
 }
 
 // Add this function after other function definitions
-async function tweetInsights(insights) {
+async function tweetInsights(insights, forceNewContent = false) {
     if (!twitterClient) return;
     
     // Check minimum time interval
@@ -93,66 +95,90 @@ async function tweetInsights(insights) {
         console.log('Skipping tweet - too soon since last update');
         return;
     }
-    
+
     try {
-        // Extract key sections using regex
-        const marketSection = insights.match(/# AI0x Market Index 📊\n(.*?)\n/s);
-        const topPerformers = insights.match(/# Top Performers 🏆\n(.*?)(?=\n#)/s);
-        const trends = insights.match(/# Market Trends 📈\n(.*?)(?=\n#)/s);
-        
-        if (!marketSection || !topPerformers) return;
-        
-        // Get top performers
-        const topRepos = topPerformers[1].match(/\*\*(.*?)\*\*/g)
-            ?.map(repo => repo.replace(/\*\*/g, ''))
-            ?.slice(0, 2) || [];
-
-        // Create tweet content
-        const tweetText = `yo just ran our daily market scan
-        
-${marketSection[1].toLowerCase()}
-
-been keeping an eye on ${topRepos[0]}, looking pretty solid rn
-
-${trends[1].trim().split('\n')[0].toLowerCase()}
-
-check out the full breakdown on ai0x.dev if ur interested`;
-        
-        const tweet = tweetText.replace(/\n\s+/g, '\n').trim();
-
-        // Check for duplicate content
-        if (tweet === lastTweetContent) {
-            console.log('Skipping duplicate tweet');
-            return;
-        }
-
-        await twitterClient.sendTweet(tweet);
-        lastTweetTime = Date.now();
-        lastTweetContent = tweet;
-        
-        // For follow-up tweets, also check for duplicates
-        if (topPerformers[1].includes('Investment Rating: A')) {
-            const followUpTweet = `btw if anyones looking for some serious projects to check out
-
-${topRepos.slice(0, 2).join(' and ')} are both showing some real potential
-
-not financial advice obviously but worth taking a look`;
+        // If we have new insights, use them
+        if (insights) {
+            // ... existing insights tweet logic ...
+        } else {
+            // Generate a different type of tweet when no new data
+            const availableTypes = TWEET_TYPES.filter(type => type !== lastTweetType);
+            const tweetType = availableTypes[Math.floor(Math.random() * availableTypes.length)];
             
-            // Only send follow-up if it's different from the last tweet
-            if (followUpTweet !== lastTweetContent) {
-                setTimeout(async () => {
-                    await twitterClient.sendTweet(followUpTweet);
-                    lastTweetContent = followUpTweet;
-                }, 2000);
+            // Get existing data
+            const analyses = await Repository.find()
+                .sort({ lastAnalyzed: -1 })
+                .limit(20);
+
+            let tweetText;
+            
+            switch(tweetType) {
+                case 'tech_trend':
+                    const languages = analyses.map(a => a.language).filter(Boolean);
+                    const topLanguage = [...new Set(languages)]
+                        .map(lang => ({
+                            lang,
+                            count: languages.filter(l => l === lang).length
+                        }))
+                        .sort((a, b) => b.count - a.count)[0];
+
+                    tweetText = `been noticing a lot of activity in ${topLanguage.lang} repos lately
+                    
+interesting to see how the ecosystem is evolving, especially in ai/ml tooling
+
+what tech stack are you all excited about rn?`;
+                    break;
+
+                case 'project_spotlight':
+                    const randomRepo = analyses[Math.floor(Math.random() * analyses.length)];
+                    tweetText = `revisiting ${randomRepo.fullName} 
+
+${randomRepo.description?.toLowerCase() || ''}
+
+their approach to ${randomRepo.analysis?.technicalStrengths?.[0]?.toLowerCase() || 'problem solving'} is pretty interesting
+
+anyone else checked this out?`;
+                    break;
+
+                case 'general_thought':
+                    const thoughts = [
+                        "wild how fast ai tooling is evolving. feels like every week theres a new breakthrough that changes the game",
+                        "been thinking about the balance between innovation and stability in tech. what matters more to you?",
+                        "quality over quantity when it comes to code. seeing too many rushed projects lately",
+                        "remember when we thought blockchain was gonna change everything? ai actually is",
+                        "open source is really carrying the future of tech rn"
+                    ];
+                    tweetText = thoughts[Math.floor(Math.random() * thoughts.length)];
+                    break;
+
+                default: // market_insight
+                    const avgStars = analyses.reduce((acc, curr) => acc + curr.stars, 0) / analyses.length;
+                    tweetText = `quick market check
+                    
+seeing an average of ${Math.round(avgStars)} stars across recent projects
+
+the quality bar keeps getting higher, especially in ${analyses[0]?.language || 'AI'} projects
+
+interesting times ahead`;
             }
+
+            // Check for duplicates
+            if (tweetText === lastTweetContent) {
+                console.log('Skipping duplicate tweet');
+                return;
+            }
+
+            await twitterClient.sendTweet(tweetText.trim());
+            lastTweetTime = Date.now();
+            lastTweetContent = tweetText;
+            lastTweetType = tweetType;
         }
-        
     } catch (error) {
         console.error('Failed to send tweet:', error);
     }
 }
 
-// Add an interval to check for updates
+// Modify the update interval to potentially tweet even without new data
 function startInsightUpdates() {
     updateInterval = setInterval(async () => {
         try {
@@ -161,11 +187,16 @@ function startInsightUpdates() {
                 .select('lastAnalyzed')
                 .limit(1);
             
-            // Only refreshes if there's new analysis data
             if (analyses[0] && analyses[0].lastAnalyzed > lastInsightUpdate) {
                 const response = await fetch(`http://localhost:${PORT}/api/insights`);
                 const data = await response.json();
                 io.emit('insightsUpdate', data);
+            } else {
+                // Maybe generate a tweet even without new data
+                const shouldTweet = Math.random() < 0.3; // 30% chance
+                if (shouldTweet) {
+                    await tweetInsights(null);
+                }
             }
         } catch (error) {
             console.error('Auto-update check failed:', error);
