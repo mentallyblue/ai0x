@@ -3,63 +3,52 @@
   <h1>AI0x - AI-Powered Market Intelligence for Code</h1>
 </div>
 
-AI0x is a real-time market intelligence platform that analyzes GitHub repositories using Claude AI to provide technical assessments and market insights. It helps identify promising projects and trends in the AI/ML ecosystem through continuous analysis and social sharing.
+AI0x is a real-time market intelligence platform powered by Claude AI that analyzes GitHub repositories to provide technical assessments and market insights. It helps identify promising projects and trends in the AI/ML ecosystem through continuous analysis and automated Twitter updates.
 
-## Features
+## Core Features
 
 ### Market Intelligence
-- Real-time market analysis
-- Project scoring and ranking
-- Trend detection and analysis
-- Technical strength evaluation
-- Investment potential signals
-- Automated market updates via Twitter
+- Real-time market health scoring (0-100)
+- Project investment ratings (A+ to C)
+- Risk level assessment (Low/Medium/High)
+- Growth, Moat, and Timing signals
+- Automated Twitter market updates every 4-8 hours
+- Technical trend detection and analysis
 
 ### Technical Analysis
-- Comprehensive code quality assessment
-- AI implementation verification
+- Repository code quality assessment
+- Implementation verification
 - Architecture evaluation
-- Security analysis
-- Documentation review
-- Legitimacy Score (Technical Implementation Verification)
+- Market potential scoring
+- Top performer identification
+- Real-time analysis queue
 
-### Real-time Updates
-- WebSocket-based live updates
-- Automated market insights
+### Live Updates
+- WebSocket-based real-time insights
 - Queue position tracking
-- Analysis history
-- Social sharing of insights
-
-### Modern UI
-- Dark theme optimized
-- Real-time data visualization
-- Analysis breakdowns
-- Market trend visualization
-- Mobile responsive design
-- JetBrains Mono font integration
+- Automated market refreshes
+- Social sharing via Twitter
+- Analysis history tracking
 
 ## Tech Stack
 
 ### Backend
 - Node.js/Express
 - Socket.IO for real-time updates
-- MongoDB with Mongoose
-- Claude AI (Anthropic) for analysis
-- Twitter integration for market updates
+- MongoDB/Mongoose
+- Claude 3 (Anthropic) for analysis
+- Twitter integration via agent-twitter-client
 
 ### Frontend
 - Vanilla JavaScript
 - WebSocket integration
-- Custom CSS with variables
-- Responsive design system
-- Markdown rendering
+- Custom CSS
 - Real-time data visualization
 
-### APIs & Integration
-- GitHub API for repository access
-- Anthropic API for AI analysis
-- Twitter API for market updates
-- Custom REST API endpoints
+### APIs
+- GitHub API
+- Anthropic API (Claude 3)
+- Custom REST endpoints
 - WebSocket events
 
 ## Setup
@@ -77,16 +66,9 @@ AI0x is a real-time market intelligence platform that analyzes GitHub repositori
    MONGODB_URI=your_mongodb_connection_string
    PORT=3000
    
-   # Twitter Configuration
+   # Twitter Credentials
    TWITTER_USERNAME=your_twitter_username
    TWITTER_PASSWORD=your_twitter_password
-   TWITTER_EMAIL=your_twitter_email
-   
-   # Twitter API Keys (Optional)
-   TWITTER_API_KEY=your_api_key
-   TWITTER_API_SECRET=your_api_secret
-   TWITTER_ACCESS_TOKEN=your_access_token
-   TWITTER_ACCESS_SECRET=your_access_secret
    ```
 
 4. Start the server:
@@ -105,30 +87,30 @@ AI0x is a real-time market intelligence platform that analyzes GitHub repositori
 
 ### Queue Management
 - `GET /api/queue-position/:jobId` - Get position in analysis queue
-- `POST /api/cleanup` - Clear analysis history (admin)
+- `POST /api/cleanup` - Clear analysis history
 
 ## Market Intelligence Features
-- Automated market analysis every hour
-- Technical trend detection
-- Project spotlights
-- Market health scoring
-- Top performer identification
-- Investment signals
-- Automated Twitter updates with:
-  - Market insights
-  - Tech trends
-  - Project spotlights
-  - General market thoughts
 
-## UI Features
-- Real-time market dashboard
-- Analysis progress tracking
-- Score visualization
-- Technical breakdowns
-- Repository history
+### Automated Analysis
+- Market health score (0-100)
+- Investment ratings (A+ to C)
+- Risk assessments (Low/Medium/High)
+- Growth/Moat/Timing signals
+- Technical trend detection
+
+### Twitter Integration
+- Automated market updates (every 4-8 hours)
+- Casual, human-like tweet format
+- Market sentiment sharing
+- Top performer highlights
+- Technical trend updates
+
+### Real-time Updates
+- WebSocket-based live dashboard
 - Queue position tracking
-- Mobile-responsive design
-- Dark theme optimization
+- Analysis progress monitoring
+- Market insight refreshes
+- Automated social sharing
 
 ## Contributing
 1. Fork the repository
@@ -141,4 +123,4 @@ AI0x is a real-time market intelligence platform that analyzes GitHub repositori
 MIT
 
 ## Support
-For support, please open an issue in the GitHub repository or follow us on Twitter [@ai0xdotfun](https://twitter.com/ai0xdotfun). 
+For support, please open an issue in the GitHub repository. 

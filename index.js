@@ -151,19 +151,6 @@ async function testTweet() {
     }
 }
 
-// Test tweet when server starts (after 10 seconds)
-setTimeout(testTweet, 10000);
-
-// Another test tweet after 5 seconds
-setTimeout(async () => {
-    console.log('🔄 Testing tweet functionality...');
-    try {
-        await tweetInsights(null, true);
-    } catch (error) {
-        console.error('❌ Initial tweet test failed:', error);
-    }
-}, 5000);
-
 // Add this function after other function definitions
 async function tweetInsights(insights, forceNewContent = false) {
     if (!twitterClient) {
@@ -401,8 +388,6 @@ Remember: This is a live market analysis feed. Be accurate and consistent with t
             console.error('Failed to tweet insights:', tweetError);
             // Continue with the response even if tweeting fails
         }
-        
-        console.log('Generated insights content:', response.content[0].text);
         
         res.json(currentInsights);
     } catch (error) {
