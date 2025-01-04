@@ -21,7 +21,7 @@ AI0x is a real-time market intelligence platform that analyzes GitHub repositori
 - Architecture evaluation
 - Security analysis
 - Documentation review
-- LARP detection (Legitimacy And Reliability Profile)
+- Legitimacy Score (Technical Implementation Verification)
 
 ### Real-time Updates
 - WebSocket-based live updates
@@ -81,6 +81,12 @@ AI0x is a real-time market intelligence platform that analyzes GitHub repositori
    TWITTER_USERNAME=your_twitter_username
    TWITTER_PASSWORD=your_twitter_password
    TWITTER_EMAIL=your_twitter_email
+   
+   # Twitter API Keys (Optional)
+   TWITTER_API_KEY=your_api_key
+   TWITTER_API_SECRET=your_api_secret
+   TWITTER_ACCESS_TOKEN=your_access_token
+   TWITTER_ACCESS_SECRET=your_access_secret
    ```
 
 4. Start the server:

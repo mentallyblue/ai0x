@@ -17,6 +17,8 @@ const ApiKey = require('./models/ApiKey');
 const apiRouter = require('./routes/api');
 const { Anthropic } = require('@anthropic-ai/sdk');
 const { Scraper } = require('agent-twitter-client');
+const mongoose = require('mongoose');
+const session = require('express-session');
 
 // Set up middleware
 app.use(express.json());
@@ -74,107 +76,109 @@ let lastTweetType = null;
 // Initialize Twitter client
 async function initializeTwitterClient() {
     try {
-        twitterClient = new Scraper();
+        twitterClient = new Scraper({
+            // Add required Twitter API v2 credentials for tweeting
+            appKey: process.env.TWITTER_API_KEY,
+            appSecret: process.env.TWITTER_API_SECRET_KEY,
+            accessToken: process.env.TWITTER_ACCESS_TOKEN,
+            accessSecret: process.env.TWITTER_ACCESS_TOKEN_SECRET
+        });
+
+        // Try to use existing cookies first
+        try {
+            const cookies = await twitterClient.getCookies();
+            if (cookies && cookies.length > 0) {
+                console.log('Using cached cookies for Twitter');
+                await twitterClient.setCookies(cookies);
+                const profile = await twitterClient.me();
+                if (profile) {
+                    console.log('Twitter client initialized successfully as:', profile.screen_name);
+                    return;
+                }
+            }
+        } catch (cookieError) {
+            console.log('No valid cookies found or expired, attempting fresh login');
+        }
+
+        // Perform full login with all credentials
         await twitterClient.login(
             process.env.TWITTER_USERNAME,
             process.env.TWITTER_PASSWORD,
-            process.env.TWITTER_EMAIL
+            process.env.TWITTER_EMAIL,
+            process.env.TWITTER_API_KEY,
+            process.env.TWITTER_API_SECRET_KEY,
+            process.env.TWITTER_ACCESS_TOKEN,
+            process.env.TWITTER_ACCESS_TOKEN_SECRET
         );
-        console.log('Twitter client initialized successfully');
+
+        // Verify login and save cookies
+        const profile = await twitterClient.me();
+        if (profile) {
+            console.log('Twitter client initialized successfully as:', profile.screen_name);
+            const newCookies = await twitterClient.getCookies();
+            if (newCookies && newCookies.length > 0) {
+                await twitterClient.saveCookies();
+                console.log('Saved new Twitter cookies');
+            }
+        } else {
+            throw new Error('Failed to verify Twitter login');
+        }
+
     } catch (error) {
-        console.error('Failed to initialize Twitter client:', error);
+        console.error('Twitter initialization error:', error);
+        console.log('Scheduling retry in 15 minutes...');
+        setTimeout(initializeTwitterClient, 900000);
     }
 }
 
 // Add this function after other function definitions
 async function tweetInsights(insights, forceNewContent = false) {
-    if (!twitterClient) return;
+    if (!twitterClient) {
+        console.log('Twitter client not initialized, skipping tweet');
+        return;
+    }
     
-    // Check minimum time interval
     if (lastTweetTime && (Date.now() - lastTweetTime) < MIN_TWEET_INTERVAL) {
         console.log('Skipping tweet - too soon since last update');
         return;
     }
 
     try {
-        // If we have new insights, use them
-        if (insights) {
-            // ... existing insights tweet logic ...
-        } else {
-            // Generate a different type of tweet when no new data
-            const availableTypes = TWEET_TYPES.filter(type => type !== lastTweetType);
-            const tweetType = availableTypes[Math.floor(Math.random() * availableTypes.length)];
-            
-            // Get existing data
-            const analyses = await Repository.find()
-                .sort({ lastAnalyzed: -1 })
-                .limit(20);
-
-            let tweetText;
-            
-            switch(tweetType) {
-                case 'tech_trend':
-                    const languages = analyses.map(a => a.language).filter(Boolean);
-                    const topLanguage = [...new Set(languages)]
-                        .map(lang => ({
-                            lang,
-                            count: languages.filter(l => l === lang).length
-                        }))
-                        .sort((a, b) => b.count - a.count)[0];
-
-                    tweetText = `been noticing a lot of activity in ${topLanguage.lang} repos lately
-                    
-interesting to see how the ecosystem is evolving, especially in ai/ml tooling
-
-what tech stack are you all excited about rn?`;
-                    break;
-
-                case 'project_spotlight':
-                    const randomRepo = analyses[Math.floor(Math.random() * analyses.length)];
-                    tweetText = `revisiting ${randomRepo.fullName} 
-
-${randomRepo.description?.toLowerCase() || ''}
-
-their approach to ${randomRepo.analysis?.technicalStrengths?.[0]?.toLowerCase() || 'problem solving'} is pretty interesting
-
-anyone else checked this out?`;
-                    break;
-
-                case 'general_thought':
-                    const thoughts = [
-                        "wild how fast ai tooling is evolving. feels like every week theres a new breakthrough that changes the game",
-                        "been thinking about the balance between innovation and stability in tech. what matters more to you?",
-                        "quality over quantity when it comes to code. seeing too many rushed projects lately",
-                        "remember when we thought blockchain was gonna change everything? ai actually is",
-                        "open source is really carrying the future of tech rn"
-                    ];
-                    tweetText = thoughts[Math.floor(Math.random() * thoughts.length)];
-                    break;
-
-                default: // market_insight
-                    const avgStars = analyses.reduce((acc, curr) => acc + curr.stars, 0) / analyses.length;
-                    tweetText = `quick market check
-                    
-seeing an average of ${Math.round(avgStars)} stars across recent projects
-
-the quality bar keeps getting higher, especially in ${analyses[0]?.language || 'AI'} projects
-
-interesting times ahead`;
-            }
-
-            // Check for duplicates
-            if (tweetText === lastTweetContent) {
-                console.log('Skipping duplicate tweet');
-                return;
-            }
-
-            await twitterClient.sendTweet(tweetText.trim());
-            lastTweetTime = Date.now();
-            lastTweetContent = tweetText;
-            lastTweetType = tweetType;
+        const marketSection = insights.match(/# AI0x Market Index 📊\n(.*?)\n/s);
+        const topPerformers = insights.match(/# Top Performers 🏆\n(.*?)(?=\n#)/s);
+        const trends = insights.match(/# Market Trends 📈\n(.*?)(?=\n#)/s);
+        
+        if (!marketSection || !topPerformers) {
+            console.log('Missing required sections for tweet');
+            return;
         }
+        
+        const topRepos = topPerformers[1].match(/\*\*(.*?)\*\*/g)
+            ?.map(repo => repo.replace(/\*\*/g, ''))
+            ?.slice(0, 2) || [];
+
+        const tweetText = `AI0x Market Update 🤖
+
+${marketSection[1].trim()}
+
+Top Project: ${topRepos[0]}
+
+${trends[1].trim().split('\n')[0]}
+
+More insights: ai0x.dev`;
+
+        // Use v2 endpoint for tweeting
+        await twitterClient.sendTweetV2(tweetText);
+        
+        console.log('Tweet sent successfully:', tweetText);
+        lastTweetTime = Date.now();
+        lastTweetContent = tweetText;
+
     } catch (error) {
         console.error('Failed to send tweet:', error);
+        if (error.message.includes('duplicate')) {
+            console.log('Duplicate tweet detected, will try different content next time');
+        }
     }
 }
 
@@ -348,7 +352,7 @@ app.get('/api/recent', async (req, res) => {
             stars: repo.stars,
             lastAnalyzed: repo.lastAnalyzed,
             analysis: {
-                larpScore: repo.analysis?.larpScore || null
+                legitimacyScore: repo.analysis?.larpScore || null
             }
         }));
         
@@ -442,6 +446,32 @@ app.get('/api/queue-position/:jobId', async (req, res) => {
 app.use('/api', apiRouter);
 
 initializeTwitterClient();
+
+// Update MongoDB connection settings
+mongoose.connect(process.env.MONGODB_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true
+});
+
+// Add proper session configuration
+app.use(session({
+    secret: 'your_secret_key',
+    cookie: {
+        secure: false, // Set to true in production with HTTPS
+        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    },
+    resave: false,
+    saveUninitialized: false
+}));
+
+// Add error handling for authentication
+app.use((err, req, res, next) => {
+    if (err.message === 'Failed to find request token in session') {
+        console.error('Authentication error:', err);
+        return res.redirect('/login?error=auth_failed');
+    }
+    next(err);
+});
 
 http.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
