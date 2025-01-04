@@ -3,7 +3,6 @@ const router = express.Router();
 const { parseGitHubUrl } = require('../utils/githubUtils');
 const Repository = require('../models/Repository');
 const { queueTracker, analysisQueue } = require('../services/queueService');
-const { queueLimiter, oneAnalysisPerIP, removeAnalysis } = require('../middleware/rateLimiter');
 const { Anthropic } = require('@anthropic-ai/sdk');
 
 // Make sure this is at the top with other requires
@@ -44,35 +43,15 @@ router.get('/repository/:owner/:repo', async (req, res) => {
         const analysis = await Repository.findOne({ 
             owner, 
             repoName: repo 
-        }).select({
-            fullName: 1,
-            description: 1,
-            language: 1,
-            stars: 1,
-            forks: 1,
-            lastAnalyzed: 1,
-            analysis: 1,  // Select all analysis fields
-            summary: 1
         });
-
+        
         if (!analysis) {
             return res.status(404).json({ error: 'Analysis not found' });
         }
-
-        // Log the response for debugging
-        console.log('Repository analysis response:', {
-            repo: analysis.fullName,
-            scores: {
-                final: analysis.analysis?.finalLegitimacyScore,
-                technical: analysis.analysis?.legitimacyScore,
-                trust: analysis.analysis?.trustScore
-            }
-        });
-
+        
         res.json(analysis);
     } catch (error) {
-        console.error('Error fetching repository analysis:', error);
-        res.status(500).json({ error: 'Failed to fetch repository analysis' });
+        res.status(500).json({ error: 'Failed to fetch analysis' });
     }
 });
 
@@ -115,8 +94,6 @@ router.get('/analyses', async (req, res) => {
 // Update the recent endpoint to include all score data
 router.get('/recent', async (req, res) => {
     try {
-        console.log('Fetching recent analyses...');
-        
         const analyses = await Repository.find()
             .select({
                 fullName: 1,
@@ -138,12 +115,10 @@ router.get('/recent', async (req, res) => {
 });
 
 // Update the analyze endpoint
-router.post('/analyze', queueLimiter, oneAnalysisPerIP, async (req, res) => {
-    const clientIP = req.ip;
+router.post('/analyze', async (req, res) => {
     try {
         const { repoUrl } = req.body;
         if (!repoUrl) {
-            removeAnalysis(clientIP);
             return res.status(400).json({ error: 'Repository URL is required' });
         }
 
@@ -154,42 +129,11 @@ router.post('/analyze', queueLimiter, oneAnalysisPerIP, async (req, res) => {
             return res.status(400).json({ error: 'Invalid GitHub repository URL' });
         }
 
-        // Check for existing analysis that's less than 24 hours old
-        const existingAnalysis = await Repository.findOne({
-            owner: repoInfo.owner,
-            repoName: repoInfo.repo,
-            lastAnalyzed: { 
-                $gt: new Date(Date.now() - 24 * 60 * 60 * 1000) // 24 hours ago
-            }
-        });
+        // Direct analysis without caching
+        const result = await queueTracker.addToQueue(`${repoInfo.owner}/${repoInfo.repo}`);
+        res.json(result);
 
-        if (existingAnalysis) {
-            console.log('Found recent analysis, returning cached result');
-            removeAnalysis(clientIP); // Remove from tracking since we're using cached
-            return res.json({ 
-                cached: true,
-                result: {
-                    repoDetails: {
-                        fullName: existingAnalysis.fullName,
-                        description: existingAnalysis.description,
-                        language: existingAnalysis.language,
-                        stars: existingAnalysis.stars,
-                        forks: existingAnalysis.forks
-                    },
-                    analysis: existingAnalysis.analysis
-                }
-            });
-        }
-
-        // If no recent analysis exists, proceed with queue
-        const jobId = await queueTracker.addToQueue(`${repoInfo.owner}/${repoInfo.repo}`);
-        console.log('Added to queue with jobId:', jobId);
-        
-        queueTracker.trackAnalysis(jobId, clientIP);
-        
-        res.json({ jobId });
     } catch (error) {
-        removeAnalysis(clientIP);
         console.error('Analysis error:', error);
         res.status(500).json({ 
             error: error.message || 'Failed to analyze repository',

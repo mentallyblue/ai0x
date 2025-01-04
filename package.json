@@ -13,6 +13,7 @@
     "agent-twitter-client": "^0.0.18",
     "axios": "^1.6.7",
     "bull": "^4.16.5",
+    "discord.js": "^14.17.2",
     "dotenv": "^16.4.1",
     "express": "^4.18.2",
     "express-rate-limit": "^7.1.5",

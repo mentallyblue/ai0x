@@ -18,6 +18,7 @@ const ApiKey = require('./models/ApiKey');
 const apiRouter = require('./routes/api');
 const { Anthropic } = require('@anthropic-ai/sdk');
 const session = require('express-session');
+const { startBot } = require('./bots/discordBot');
 
 // Set up middleware
 app.use(express.json());
@@ -95,4 +96,5 @@ app.use((err, req, res, next) => {
 
 http.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
+    startBot();
 }); 
