@@ -1901,3 +1901,31 @@ section {
     50% { opacity: 0.8; }
     100% { opacity: 0.6; }
 }
+
+.social-links {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-left: 16px;
+}
+
+.social-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    transition: color 0.2s ease;
+    padding: 6px;
+    border-radius: 6px;
+}
+
+.social-link:hover {
+    color: var(--accent);
+    background: rgba(255, 215, 0, 0.1);
+}
+
+.social-link svg {
+    width: 20px;
+    height: 20px;
+    fill: currentColor;
+}
