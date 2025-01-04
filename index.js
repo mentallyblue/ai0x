@@ -19,6 +19,8 @@ const { Anthropic } = require('@anthropic-ai/sdk');
 const { Scraper } = require('agent-twitter-client');
 const mongoose = require('mongoose');
 const session = require('express-session');
+const fs = require('fs').promises;
+const path = require('path');
 
 // Set up middleware
 app.use(express.json());
@@ -63,12 +65,12 @@ const PORT = process.env.PORT || 3000;
 // Add these variables at the top
 let currentInsights = null;
 let lastInsightUpdate = null;
-const UPDATE_INTERVAL = 3600000; // 1 hour instead of 5 minutes
+const UPDATE_INTERVAL = 3600000 * 4; // Check every 4 hours instead of 1
 let updateInterval;
 let twitterClient;
-const TWEET_INTERVAL = 3600000 * 4; // Tweet every 4 hours
+const TWEET_INTERVAL = 3600000 * 8; // Maximum of one tweet every 8 hours
 let lastTweetTime = null;
-const MIN_TWEET_INTERVAL = 300000; // 5 minutes minimum between tweets
+const MIN_TWEET_INTERVAL = 1800000; // Minimum 30 minutes between tweets
 let lastTweetContent = null; // Store last tweet to prevent duplicates
 const TWEET_TYPES = ['market_insight', 'tech_trend', 'project_spotlight', 'general_thought'];
 let lastTweetType = null;
@@ -76,19 +78,17 @@ let lastTweetType = null;
 // Initialize Twitter client
 async function initializeTwitterClient() {
     try {
-        twitterClient = new Scraper({
-            // Add required Twitter API v2 credentials for tweeting
-            appKey: process.env.TWITTER_API_KEY,
-            appSecret: process.env.TWITTER_API_SECRET_KEY,
-            accessToken: process.env.TWITTER_ACCESS_TOKEN,
-            accessSecret: process.env.TWITTER_ACCESS_TOKEN_SECRET
-        });
-
-        // Try to use existing cookies first
+        // Create new scraper instance directly
+        twitterClient = new Scraper();
+        
+        // Try to load saved cookies
         try {
-            const cookies = await twitterClient.getCookies();
+            const cookiesPath = path.join(__dirname, 'twitter-cookies.json');
+            const cookiesData = await fs.readFile(cookiesPath, 'utf8');
+            const cookies = JSON.parse(cookiesData);
+            
             if (cookies && cookies.length > 0) {
-                console.log('Using cached cookies for Twitter');
+                console.log('Using saved cookies for Twitter');
                 await twitterClient.setCookies(cookies);
                 const profile = await twitterClient.me();
                 if (profile) {
@@ -97,29 +97,27 @@ async function initializeTwitterClient() {
                 }
             }
         } catch (cookieError) {
-            console.log('No valid cookies found or expired, attempting fresh login');
+            console.log('No valid cookies found, attempting fresh login');
         }
 
-        // Perform full login with all credentials
+        // Basic login as shown in docs
         await twitterClient.login(
             process.env.TWITTER_USERNAME,
-            process.env.TWITTER_PASSWORD,
-            process.env.TWITTER_EMAIL,
-            process.env.TWITTER_API_KEY,
-            process.env.TWITTER_API_SECRET_KEY,
-            process.env.TWITTER_ACCESS_TOKEN,
-            process.env.TWITTER_ACCESS_TOKEN_SECRET
+            process.env.TWITTER_PASSWORD
         );
 
-        // Verify login and save cookies
+        // Save cookies after successful login
+        const newCookies = await twitterClient.getCookies();
+        if (newCookies && newCookies.length > 0) {
+            const cookiesPath = path.join(__dirname, 'twitter-cookies.json');
+            await fs.writeFile(cookiesPath, JSON.stringify(newCookies, null, 2));
+            console.log('Saved new Twitter cookies');
+        }
+
+        // Verify login
         const profile = await twitterClient.me();
         if (profile) {
             console.log('Twitter client initialized successfully as:', profile.screen_name);
-            const newCookies = await twitterClient.getCookies();
-            if (newCookies && newCookies.length > 0) {
-                await twitterClient.saveCookies();
-                console.log('Saved new Twitter cookies');
-            }
         } else {
             throw new Error('Failed to verify Twitter login');
         }
@@ -131,25 +129,63 @@ async function initializeTwitterClient() {
     }
 }
 
+// Simple test tweet function
+async function testTweet() {
+    try {
+        if (!twitterClient) {
+            console.log('Initializing Twitter client...');
+            await initializeTwitterClient();
+        }
+
+        console.log('Sending test tweet...');
+        const response = await twitterClient.sendTweet('Test tweet from AI0x 🤖\n\nTimestamp: ' + new Date().toISOString());
+        console.log('Test tweet response:', response);
+        
+        if (response && response.status === 200) {
+            console.log('✅ Test tweet sent successfully!');
+        } else {
+            throw new Error('Test tweet failed - unexpected response');
+        }
+    } catch (error) {
+        console.error('❌ Test tweet failed:', error);
+    }
+}
+
+// Test tweet when server starts (after 10 seconds)
+setTimeout(testTweet, 10000);
+
+// Another test tweet after 5 seconds
+setTimeout(async () => {
+    console.log('🔄 Testing tweet functionality...');
+    try {
+        await tweetInsights(null, true);
+    } catch (error) {
+        console.error('❌ Initial tweet test failed:', error);
+    }
+}, 5000);
+
 // Add this function after other function definitions
 async function tweetInsights(insights, forceNewContent = false) {
     if (!twitterClient) {
-        console.log('Twitter client not initialized, skipping tweet');
-        return;
-    }
-    
-    if (lastTweetTime && (Date.now() - lastTweetTime) < MIN_TWEET_INTERVAL) {
-        console.log('Skipping tweet - too soon since last update');
+        console.log('⚠️ Twitter client not initialized, skipping tweet');
         return;
     }
 
     try {
-        const marketSection = insights.match(/# AI0x Market Index 📊\n(.*?)\n/s);
-        const topPerformers = insights.match(/# Top Performers 🏆\n(.*?)(?=\n#)/s);
-        const trends = insights.match(/# Market Trends 📈\n(.*?)(?=\n#)/s);
+        console.log('🐦 Preparing tweet content...');
         
-        if (!marketSection || !topPerformers) {
-            console.log('Missing required sections for tweet');
+        const content = insights || (currentInsights ? currentInsights.insights : null);
+        if (!content) {
+            console.log('❌ No content available for tweet');
+            return;
+        }
+
+        const marketSection = content.match(/# AI0x Market Index 📊\n(.*?)\n/s);
+        const topPerformers = content.match(/# Top Performers 🏆\n(.*?)(?=\n#)/s);
+        const trends = content.match(/# Market Trends 📈\n(.*?)(?=\n#)/s);
+        
+        if (!marketSection || !topPerformers || !trends) {
+            console.log('❌ Missing required sections for tweet');
             return;
         }
         
@@ -157,29 +193,62 @@ async function tweetInsights(insights, forceNewContent = false) {
             ?.map(repo => repo.replace(/\*\*/g, ''))
             ?.slice(0, 2) || [];
 
-        const tweetText = `AI0x Market Update 🤖
+        // More casual, human-like tweet format
+        const tweetText = `hey, quick market update:
 
-${marketSection[1].trim()}
+market's looking pretty ${getMarketSentiment(marketSection[1])} right now
 
-Top Project: ${topRepos[0]}
+been checking out ${topRepos[0]}, really interesting stuff
 
-${trends[1].trim().split('\n')[0]}
+${humanizeTrend(trends[1].trim().split('\n')[0])}
 
-More insights: ai0x.dev`;
+more details at ai0x.dev if you're curious`;
 
-        // Use v2 endpoint for tweeting
-        await twitterClient.sendTweetV2(tweetText);
+        console.log('📤 Attempting to send tweet:', tweetText);
+        const response = await twitterClient.sendTweet(tweetText);
         
-        console.log('Tweet sent successfully:', tweetText);
-        lastTweetTime = Date.now();
-        lastTweetContent = tweetText;
+        // Simplify the verification process
+        if (response && response.status === 200) {
+            console.log('✅ Tweet sent successfully!', {
+                text: tweetText,
+                response: response
+            });
+            lastTweetTime = Date.now();
+            lastTweetContent = tweetText;
+        } else {
+            throw new Error('Failed to send tweet - unexpected response');
+        }
 
     } catch (error) {
-        console.error('Failed to send tweet:', error);
-        if (error.message.includes('duplicate')) {
-            console.log('Duplicate tweet detected, will try different content next time');
-        }
+        console.error('❌ Failed to send tweet:', error);
+        console.error('Full error details:', {
+            name: error.name,
+            message: error.message,
+            stack: error.stack,
+            response: error.response
+        });
     }
+}
+
+// Helper function to convert market score to sentiment
+function getMarketSentiment(marketText) {
+    const score = parseInt(marketText.match(/\d+/)[0]);
+    if (score >= 85) return 'strong';
+    if (score >= 70) return 'solid';
+    if (score >= 50) return 'decent';
+    return 'a bit shaky';
+}
+
+// Helper function to make trends more conversational
+function humanizeTrend(trend) {
+    return trend
+        .replace(/\[|\]/g, '')  // Remove brackets
+        .toLowerCase()
+        .replace(/\.$/, '')     // Remove trailing period
+        .replace(/there is/gi, "there's")
+        .replace(/artificial intelligence/gi, 'ai')
+        .replace(/implementation/gi, 'implementation work')
+        .replace(/integration/gi, 'integration stuff');
 }
 
 // Modify the update interval to potentially tweet even without new data
@@ -196,8 +265,8 @@ function startInsightUpdates() {
                 const data = await response.json();
                 io.emit('insightsUpdate', data);
             } else {
-                // Maybe generate a tweet even without new data
-                const shouldTweet = Math.random() < 0.3; // 30% chance
+                // 30% chance to tweet even without new data
+                const shouldTweet = Math.random() < 0.3;
                 if (shouldTweet) {
                     await tweetInsights(null);
                 }
@@ -323,8 +392,17 @@ Remember: This is a live market analysis feed. Be accurate and consistent with t
 
         io.emit('insightsUpdate', currentInsights);
         
-        // Add this line to tweet the insights
-        await tweetInsights(response.content[0].text);
+        // Modify the tweet call to use await and handle errors explicitly
+        try {
+            if (response.content[0].text) {
+                await tweetInsights(response.content[0].text);
+            }
+        } catch (tweetError) {
+            console.error('Failed to tweet insights:', tweetError);
+            // Continue with the response even if tweeting fails
+        }
+        
+        console.log('Generated insights content:', response.content[0].text);
         
         res.json(currentInsights);
     } catch (error) {
