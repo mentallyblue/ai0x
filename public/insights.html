@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI0x | Live Insights</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap">
+    <link rel="stylesheet" href="/css/styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        .insights-container {
+            max-width: 900px;
+            margin: 40px auto;
+            padding: 20px;
+        }
+
+        .quick-take {
+            background: var(--gradient);
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 30px;
+            color: var(--bg-primary);
+            font-size: 18px;
+            line-height: 1.6;
+            box-shadow: 0 8px 32px rgba(0, 255, 157, 0.15);
+        }
+
+        .deep-dive {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 30px;
+        }
+
+        .insight-section {
+            margin-bottom: 25px;
+        }
+
+        .insight-section h3 {
+            color: var(--accent);
+            font-size: 18px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .insight-content {
+            color: var(--text-secondary);
+            line-height: 1.7;
+            font-size: 15px;
+        }
+
+        .insight-content ul {
+            margin: 15px 0;
+            padding-left: 20px;
+        }
+
+        .insight-content li {
+            margin: 10px 0;
+        }
+
+        .refresh-button {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: var(--gradient);
+            border: none;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0, 255, 157, 0.3);
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+
+        .refresh-button:hover {
+            transform: rotate(180deg) scale(1.1);
+        }
+
+        .thinking {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            padding: 40px;
+            text-align: center;
+            border-radius: 12px;
+            color: var(--text-secondary);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.6; }
+            50% { opacity: 1; }
+            100% { opacity: 0.6; }
+        }
+
+        code {
+            background: var(--bg-primary);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9em;
+            color: var(--accent);
+        }
+
+        .timestamp {
+            color: var(--text-secondary);
+            font-size: 14px;
+            margin-top: 20px;
+            text-align: right;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <a href="/" class="logo">
+                <img src="/images/image.jpg" alt="AI0x" class="logo-img">
+                <span class="logo-text">ai0x</span>
+            </a>
+            <nav class="nav-links">
+                <a href="/" class="nav-link">Analyze</a>
+                <a href="/history.html" class="nav-link">History</a>
+                <a href="/insights.html" class="nav-link active">Insights</a>
+            </nav>
+        </div>
+    </header>
+
+    <div class="insights-container">
+        <div id="insightsContent"></div>
+    </div>
+
+    <button class="refresh-button" onclick="loadInsights()" title="Generate new insights">
+        🔄
+    </button>
+
+    <script>
+        let socket;
+        
+        async function initializeSocket() {
+            try {
+                socket = io({
+                    transports: ['websocket', 'polling'],
+                    reconnectionAttempts: 5,
+                    reconnectionDelay: 1000
+                });
+
+                socket.on('connect', () => {
+                    console.log('Connected to insights socket');
+                });
+
+                socket.on('insightsUpdate', (data) => {
+                    console.log('Received insights update');
+                    updateInsightsDisplay(data);
+                });
+
+                socket.on('insightsError', (error) => {
+                    console.error('Insights error:', error);
+                    showError(error.message);
+                });
+
+            } catch (error) {
+                console.error('Socket initialization error:', error);
+                showError('Failed to connect to insights service');
+            }
+        }
+
+        function updateInsightsDisplay(data) {
+            const container = document.getElementById('insightsContent');
+            
+            // Split the insights into Quick Take and Deep Dive
+            const parts = data.insights.split('\n\n');
+            const quickTake = parts[0];
+            const deepDive = parts.slice(1).join('\n\n');
+            
+            container.innerHTML = `
+                <div class="quick-take">
+                    ${marked.parse(quickTake)}
+                </div>
+                <div class="deep-dive">
+                    ${marked.parse(deepDive)}
+                </div>
+                <div class="timestamp">
+                    Generated at ${new Date(data.timestamp).toLocaleTimeString()}
+                </div>
+            `;
+        }
+
+        function showError(message) {
+            const container = document.getElementById('insightsContent');
+            container.innerHTML = `
+                <div class="insight-bubble error">
+                    <h3>❌ Error</h3>
+                    <p>${message}</p>
+                    <button onclick="refreshInsights()" class="retry-button">Try Again</button>
+                </div>
+            `;
+        }
+
+        async function refreshInsights() {
+            const container = document.getElementById('insightsContent');
+            container.innerHTML = `
+                <div class="thinking">
+                    <h3>AI0x is analyzing repositories...</h3>
+                    <p>Generating technical insights and patterns</p>
+                </div>
+            `;
+
+            // Request new insights through socket
+            socket.emit('requestInsightsRefresh');
+        }
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeSocket();
+            // Initial load of insights
+            refreshInsights();
+        });
+    </script>
+</body>
+</html> 

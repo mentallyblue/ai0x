@@ -4,6 +4,10 @@ const { parseGitHubUrl } = require('../utils/githubUtils');
 const Repository = require('../models/Repository');
 const { queueTracker, analysisQueue } = require('../services/queueService');
 const { queueLimiter, oneAnalysisPerIP, removeAnalysis } = require('../middleware/rateLimiter');
+const { Anthropic } = require('@anthropic-ai/sdk');
+
+// Make sure this is at the top with other requires
+require('dotenv').config();
 
 router.get('/recommendations/:owner/:repo', async (req, res) => {
     try {
@@ -202,6 +206,71 @@ router.get('/queue-position/:jobId', async (req, res) => {
         res.json(queueInfo);
     } catch (error) {
         res.status(500).json({ error: error.message });
+    }
+});
+
+// Fix the insights endpoint
+router.get('/insights', async (req, res) => {
+    try {
+        console.log('Fetching insights...');
+        // Get recent analyses from MongoDB
+        const analyses = await Repository.find()
+            .select({
+                fullName: 1,
+                description: 1,
+                language: 1,
+                stars: 1,
+                analysis: 1,
+                lastAnalyzed: 1
+            })
+            .sort({ lastAnalyzed: -1 })
+            .limit(5);
+
+        console.log('Found analyses:', analyses.length);
+
+        // Get insights from Claude
+        const anthropic = new Anthropic({
+            apiKey: process.env.ANTHROPIC_API_KEY,
+        });
+
+        const prompt = `You are an AI technology analyst with a quirky personality. You love discovering interesting patterns and sharing insights about code repositories. Given these recent analyses, share your thoughts, discoveries, and suggestions in a casual, engaging way. Be creative and highlight interesting connections or trends you notice.
+
+Repository Data:
+${JSON.stringify(analyses, null, 2)}
+
+Generate:
+1. Overall trends you notice
+2. Interesting connections between projects
+3. Suggestions for improvements
+4. Random but insightful observations
+5. Technology predictions based on what you see
+
+Be conversational and show personality. Use emojis occasionally. Temperature is set high for creative responses.`;
+
+        console.log('Requesting insights from Claude...');
+
+        const response = await anthropic.messages.create({
+            model: 'claude-3-sonnet-20240229',
+            max_tokens: 1000,
+            temperature: 0.9,
+            messages: [{ 
+                role: 'user', 
+                content: prompt 
+            }]
+        });
+
+        console.log('Received response from Claude');
+
+        res.json({
+            analyses,
+            insights: response.content[0].text
+        });
+    } catch (error) {
+        console.error('Error generating insights:', error);
+        res.status(500).json({ 
+            error: 'Failed to generate insights',
+            details: error.message 
+        });
     }
 });
 
