@@ -1,3 +1,7 @@
+const express = require('express');
+const router = express.Router();
+const { parseGitHubUrl } = require('../utils/githubUtils');
+const Repository = require('../models/Repository');
 const { queueTracker, analysisQueue } = require('../services/queueService');
 const { queueLimiter, oneAnalysisPerIP, removeAnalysis } = require('../middleware/rateLimiter');
 
@@ -199,4 +203,6 @@ router.get('/queue-position/:jobId', async (req, res) => {
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
-}); 
+});
+
+module.exports = router; 

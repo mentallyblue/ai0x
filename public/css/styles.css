@@ -262,12 +262,6 @@ button::after {
     margin-top: 40px;
 }
 
-.recent-analyses h2 {
-    color: var(--text-primary);
-    font-size: 20px;
-    margin-bottom: 20px;
-}
-
 .repo-card {
     background: var(--bg-secondary);
     border: 1px solid var(--border);
@@ -287,13 +281,48 @@ button::after {
 .repo-card h3 {
     color: var(--accent);
     font-size: 16px;
-    margin-bottom: 10px;
+    margin: 0 0 12px 0;
+}
+
+.repo-card p {
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 1.6;
+    margin: 0 0 15px 0;
 }
 
 .repo-meta {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 10px;
+}
+
+.repo-meta span {
     color: var(--text-secondary);
     font-size: 14px;
-    line-height: 1.5;
+}
+
+.language {
+    display: inline-flex;
+    align-items: center;
+}
+
+.stars {
+    display: inline-flex;
+    align-items: center;
+}
+
+.analysis-time {
+    color: var(--text-secondary);
+    font-size: 14px;
+    opacity: 0.8;
+}
+
+/* Remove the old placeholder styles since we're using the new default style */
+.loading-placeholder,
+.placeholder-grid,
+.placeholder-card {
+    display: none;
 }
 
 .legitimacy-score {
@@ -1805,4 +1834,70 @@ section {
     margin-top: 8px;
     text-align: center;
     font-style: italic;
+}
+
+/* Add or update these styles */
+.analysis-item {
+    border: 1px solid #e1e4e8;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+    background-color: #fff;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.analysis-item:hover {
+    border-color: #0366d6;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+}
+
+.repo-name {
+    color: #0366d6;
+    margin: 0 0 8px 0;
+}
+
+.analysis-summary {
+    color: #586069;
+    margin: 8px 0;
+}
+
+.score-container {
+    display: flex;
+    gap: 15px;
+    margin-top: 10px;
+}
+
+.score {
+    font-weight: 500;
+    color: #24292e;
+}
+
+.loading-placeholder {
+    opacity: 0.7;
+}
+
+.placeholder-grid {
+    display: grid;
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.placeholder-card {
+    height: 150px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    animation: pulse 1.5s infinite;
+}
+
+.recent-grid {
+    display: grid;
+    gap: 15px;
+    margin-top: 20px;
+}
+
+@keyframes pulse {
+    0% { opacity: 0.6; }
+    50% { opacity: 0.8; }
+    100% { opacity: 0.6; }
 }

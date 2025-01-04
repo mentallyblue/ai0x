@@ -291,31 +291,72 @@ function formatLegitimacyScore(score) {
 
 async function loadRecentAnalyses() {
     try {
+        console.log('Starting to load recent analyses...');
         const response = await fetch('/api/recent');
-        const analyses = await response.json();
         
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const analyses = await response.json();
         console.log('Recent analyses data:', analyses);
         
         const recentList = document.getElementById('recentList');
-        recentList.innerHTML = `<h2>Recent Analyses</h2>` + analyses.map(repo => {
+        console.log('Found recentList element:', !!recentList);
+        
+        if (!recentList) {
+            console.error('Could not find #recentList element in the DOM');
+            return;
+        }
+
+        // Create the HTML string
+        const analysesHTML = analyses.map(repo => {
+            console.log('Creating card for repo:', repo.fullName);
             return `
-                <div class="repo-card" onclick="loadAnalysis('${repo.fullName}')">
+                <div class="repo-card" 
+                     data-repo="${repo.fullName}" 
+                     style="cursor: pointer;">
                     <h3>${repo.fullName}</h3>
+                    <p>${repo.description || 'No description available'}</p>
                     <div class="repo-meta">
-                        ${repo.description || 'No description provided'}
-                        <br>
-                        ${repo.language || 'Unknown'} • ${repo.stars || 0} stars
-                        <br>
-                        Analyzed: ${new Date(repo.lastAnalyzed).toLocaleDateString()}
+                        <span class="language">${repo.language || 'Unknown'}</span>
+                        <span class="stars">⭐ ${repo.stars || 0}</span>
+                    </div>
+                    <div class="analysis-time">
+                        Analyzed: ${new Date(repo.lastAnalyzed).toLocaleString()}
                     </div>
                 </div>
             `;
         }).join('');
 
+        // Set the innerHTML
+        recentList.innerHTML = `
+            <div class="recent-analyses">
+                ${analysesHTML}
+            </div>
+        `;
+
+        // Add click handlers after the content is loaded
+        document.querySelectorAll('.repo-card').forEach(card => {
+            card.addEventListener('click', function(e) {
+                const repoName = this.dataset.repo;
+                if (repoName) {
+                    console.log('Navigating to analysis for:', repoName);
+                    window.location.href = `/analysis.html?repo=${encodeURIComponent(repoName)}`;
+                }
+            });
+        });
+
     } catch (error) {
         console.error('Failed to load recent analyses:', error);
         const recentList = document.getElementById('recentList');
-        recentList.innerHTML = '<div class="error">Failed to load recent analyses</div>';
+        if (recentList) {
+            recentList.innerHTML = `
+                <div class="error">
+                    Failed to load recent analyses: ${error.message}
+                </div>
+            `;
+        }
     }
 }
 
@@ -343,6 +384,8 @@ async function loadAnalysis(repoFullName) {
 
 // Initialize when the page loads
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM Content Loaded - Initializing...');
+    loadRecentAnalyses();
     let socket;
     try {
         socket = io({
@@ -403,8 +446,23 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Load recent analyses
-    loadRecentAnalyses();
+    // Add this function to handle clicks on repo cards
+    initializeRepoCardClicks();
+    
+    // Also add MutationObserver to handle dynamically added cards
+    const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+            if (mutation.addedNodes.length) {
+                initializeRepoCardClicks();
+            }
+        });
+    });
+
+    // Start observing the recentList element for changes
+    const recentList = document.getElementById('recentList');
+    if (recentList) {
+        observer.observe(recentList, { childList: true, subtree: true });
+    }
 });
 
 // Add helper functions for score classes
@@ -450,39 +508,47 @@ function renderList(title, items) {
 }
 
 function displayRecentAnalyses(analyses) {
-    const recentDiv = document.getElementById('recentAnalyses');
-    if (!recentDiv || !analyses.length) return;
+    const historyContainer = document.getElementById('recent-analyses');
+    if (!historyContainer) return;
 
-    recentDiv.innerHTML = `
-        <h2>Recent Analyses</h2>
-        <div class="recent-grid">
-            ${analyses.map(analysis => {
-                const legitimacyScore = analysis.analysis?.finalLegitimacyScore ?? 
-                                      analysis.analysis?.legitimacyScore ?? 
-                                      (analysis.analysis?.larpScore ?? 0);
-                
-                return `
-                    <div class="recent-card ${getScoreClass(legitimacyScore)}">
-                        <div class="recent-header">
-                            <h3>${analysis.fullName}</h3>
-                            <span class="recent-score">${legitimacyScore}</span>
-                        </div>
-                        <div class="recent-description">
-                            ${analysis.description || 'No description available'}
-                        </div>
-                        <div class="recent-summary">
-                            ${analysis.summary || 'Analysis summary not available'}
-                        </div>
-                        <div class="recent-meta">
-                            <span class="tech-tag">${analysis.language || 'Unknown'}</span>
-                            <span class="tech-tag">⭐ ${analysis.stars || 0}</span>
-                        </div>
-                    </div>
-                `;
-            }).join('')}
+    historyContainer.innerHTML = analyses.map(analysis => `
+        <div class="analysis-item" data-repo="${analysis.repoDetails.full_name}">
+            <h3 class="repo-name">${analysis.repoDetails.full_name}</h3>
+            <p class="analysis-summary">${analysis.analysis.summary || 'No summary available'}</p>
+            <div class="score-container">
+                <span class="score">Trust Score: ${analysis.analysis.trustScore.toFixed(2)}</span>
+                <span class="score">Legitimacy: ${analysis.analysis.finalLegitimacyScore.toFixed(2)}</span>
+            </div>
         </div>
-    `;
+    `).join('');
+
+    // Add click handlers to all analysis items
+    document.querySelectorAll('.analysis-item').forEach(item => {
+        item.addEventListener('click', function() {
+            const repoName = this.dataset.repo;
+            if (repoName) {
+                window.location.href = `/analysis.html?repo=${encodeURIComponent(repoName)}`;
+            }
+        });
+    });
 }
+
+// Add some CSS to make it clear items are clickable
+const style = document.createElement('style');
+style.textContent = `
+    .analysis-item {
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 10px;
+    }
+
+    .analysis-item:hover {
+        background-color: rgba(0, 0, 0, 0.05);
+    }
+`;
+document.head.appendChild(style);
 
 // Update the score range constants
 const SCORE_RANGES = {
@@ -738,4 +804,21 @@ function showToast(message) {
             container.remove();
         }
     }, 5000);
+}
+
+// Add this function to handle clicks on repo cards
+function initializeRepoCardClicks() {
+    const repoCards = document.querySelectorAll('.repo-card');
+    repoCards.forEach(card => {
+        card.addEventListener('click', function() {
+            // Extract repo name from the h3 element
+            const repoName = this.querySelector('h3').textContent;
+            if (repoName) {
+                console.log('Clicked repo:', repoName);
+                window.location.href = `/analysis.html?repo=${encodeURIComponent(repoName)}`;
+            }
+        });
+        // Add cursor pointer to make it clear it's clickable
+        card.style.cursor = 'pointer';
+    });
 } 
