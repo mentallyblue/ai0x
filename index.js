@@ -20,6 +20,7 @@ const { Anthropic } = require('@anthropic-ai/sdk');
 const session = require('express-session');
 const { startBot: startDiscordBot } = require('./bots/discordBot');
 const { startBot: startTelegramBot } = require('./bots/telegramBot');
+const v8 = require('v8');
 
 // Set up middleware
 app.use(express.json());
@@ -29,27 +30,14 @@ app.use(express.static('public'));
 global.io = io;
 
 io.on('connection', (socket) => {
-    console.log('Client connected');
+    console.log('Client connected:', socket.id);
     
-    // Send current insights to newly connected clients
-    if (currentInsights) {
-        socket.emit('insightsUpdate', currentInsights);
-    }
-
-    socket.on('disconnect', () => {
-        console.log('Client disconnected');
+    socket.on('error', (error) => {
+        console.error('Socket error:', error);
     });
-
-    socket.on('requestInsightsRefresh', async () => {
-        try {
-            // Force a refresh of insights
-            const response = await fetch(`http://localhost:${PORT}/api/insights`);
-            const data = await response.json();
-            io.emit('insightsUpdate', data);
-        } catch (error) {
-            console.error('Error refreshing insights:', error);
-            socket.emit('insightsError', { message: 'Failed to refresh insights' });
-        }
+    
+    socket.on('disconnect', (reason) => {
+        console.log('Client disconnected:', socket.id, 'Reason:', reason);
     });
 });
 
@@ -66,13 +54,41 @@ let currentInsights = null;
 let lastInsightUpdate = null;
 const UPDATE_INTERVAL = 3600000 * 4; // Check every 4 hours
 
+// Add memory monitoring
+setInterval(() => {
+    const heapStats = v8.getHeapStatistics();
+    const heapUsed = (heapStats.used_heap_size / heapStats.heap_size_limit) * 100;
+    
+    console.log(`Memory usage: ${heapUsed.toFixed(2)}%`);
+    
+    if (heapUsed > 90) {
+        console.warn('High memory usage detected!');
+        global.gc && global.gc(); // Force garbage collection if available
+    }
+}, 300000); // Check every 5 minutes
+
 // Rest of your existing routes...
 app.use('/api', apiRouter);
 
 // Update MongoDB connection settings
 mongoose.connect(process.env.MONGODB_URI, {
     useNewUrlParser: true,
-    useUnifiedTopology: true
+    useUnifiedTopology: true,
+    serverSelectionTimeoutMS: 5000,
+    socketTimeoutMS: 45000,
+    keepAlive: true,
+    keepAliveInitialDelay: 300000
+})
+.then(() => console.log('MongoDB connected'))
+.catch(err => console.error('MongoDB connection error:', err));
+
+// Add reconnection handling
+mongoose.connection.on('disconnected', () => {
+    console.log('MongoDB disconnected. Attempting to reconnect...');
+});
+
+mongoose.connection.on('error', (err) => {
+    console.error('MongoDB error:', err);
 });
 
 // Add proper session configuration
@@ -100,4 +116,30 @@ startTelegramBot();
 
 http.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
+});
+
+// Add error handling for the HTTP server
+http.on('error', (error) => {
+    console.error('HTTP Server error:', error);
+});
+
+// Add proper shutdown handling
+process.on('SIGTERM', () => {
+    console.log('SIGTERM received. Shutting down gracefully...');
+    http.close(() => {
+        console.log('HTTP server closed');
+        process.exit(0);
+    });
+});
+
+// Add near the top with other routes
+app.get('/health', (req, res) => {
+    // Check MongoDB connection
+    const isDbConnected = mongoose.connection.readyState === 1;
+    
+    if (isDbConnected) {
+        res.status(200).json({ status: 'healthy', db: 'connected' });
+    } else {
+        res.status(503).json({ status: 'unhealthy', db: 'disconnected' });
+    }
 }); 

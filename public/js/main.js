@@ -821,4 +821,14 @@ function initializeRepoCardClicks() {
         // Add cursor pointer to make it clear it's clickable
         card.style.cursor = 'pointer';
     });
+}
+
+function copyCA() {
+    const caAddress = document.getElementById('caAddress').textContent;
+    navigator.clipboard.writeText(caAddress).then(() => {
+        showToast('CA copied to clipboard!');
+    }).catch(err => {
+        console.error('Failed to copy:', err);
+        showToast('Failed to copy CA');
+    });
 } 

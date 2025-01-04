@@ -715,8 +715,18 @@
             try {
                 socket = io({
                     transports: ['websocket', 'polling'],
-                    reconnectionAttempts: 5,
-                    reconnectionDelay: 1000
+                    reconnectionAttempts: 10,
+                    reconnectionDelay: 2000,
+                    timeout: 20000,
+                    forceNew: true,
+                    path: '/socket.io/',
+                    autoConnect: true,
+                    reconnection: true
+                });
+
+                socket.on('connect_error', (error) => {
+                    console.error('Connection Error:', error);
+                    showError('Connection error - retrying...');
                 });
 
                 socket.on('connect', () => {
