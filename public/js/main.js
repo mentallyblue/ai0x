@@ -68,11 +68,24 @@ async function pollQueuePosition(jobId) {
             const progress = ((data.total - data.position) / data.total) * 100;
             resultDiv.innerHTML = `
                 <div class="queue-status">
-                    <div class="queue-position">Position in queue: ${data.position}</div>
+                    <div class="queue-position">
+                        ${data.position === 0 ? 
+                            '<span class="processing-badge">Processing</span>' : 
+                            `Position in queue: ${data.position} of ${data.total}`
+                        }
+                    </div>
                     <div class="queue-progress">
                         <div class="progress-bar" style="width: ${progress}%"></div>
                     </div>
-                    <div class="queue-message">Please wait while we analyze your repository...</div>
+                    <div class="queue-details">
+                        ${data.position === 0 ? 
+                            '<span class="queue-eta">Analysis in progress...</span>' :
+                            `<span class="queue-eta">Estimated wait: ${formatTime(data.position * 30)}</span>`
+                        }
+                    </div>
+                    <div class="queue-message">
+                        ${getQueueMessage(data.position)}
+                    </div>
                 </div>
             `;
 
@@ -514,4 +527,61 @@ function displayAnalyses(analyses) {
             </div>
         `;
     }).join('');
+}
+
+// Update the queue status header with more detailed information
+function updateQueueHeader(queueSize) {
+    const queueStatusHeader = document.getElementById('queueStatusHeader');
+    if (!queueStatusHeader) return;
+
+    const statusClass = queueSize > 0 ? 'queue-active' : 'queue-idle';
+    queueStatusHeader.innerHTML = `
+        <div class="queue-status-content ${statusClass}">
+            <span class="queue-count">Queue: ${queueSize}</span>
+            <span class="queue-indicator"></span>
+        </div>
+    `;
+}
+
+// Update the socket.io connection handler
+try {
+    const socket = io();
+    socket.on('queueUpdate', (data) => {
+        updateQueueHeader(data.size);
+    });
+    
+    socket.on('connect', () => {
+        console.log('Connected to queue updates');
+        updateQueueHeader(0); // Reset on connect
+    });
+    
+    socket.on('disconnect', () => {
+        console.log('Disconnected from queue updates');
+        document.getElementById('queueStatusHeader').innerHTML = 
+            '<span class="queue-count queue-offline">Queue: Offline</span>';
+    });
+} catch (error) {
+    console.error('Socket.IO initialization error:', error);
+    if (queueStatusHeader) {
+        queueStatusHeader.innerHTML = '<span class="queue-count">Queue: Offline</span>';
+    }
+} 
+
+function formatTime(seconds) {
+    if (seconds < 60) return `${seconds} seconds`;
+    const minutes = Math.ceil(seconds / 60);
+    return `~${minutes} minute${minutes > 1 ? 's' : ''}`;
+}
+
+function getQueueMessage(position) {
+    if (position === 0) {
+        return 'We are analyzing your repository. This may take a few minutes...';
+    }
+    const messages = [
+        'Thank you for your patience!',
+        'We\'ll notify you when the analysis is ready.',
+        'Analyzing repositories thoroughly takes time.',
+        'Get ready for a detailed analysis!'
+    ];
+    return messages[position % messages.length];
 } 

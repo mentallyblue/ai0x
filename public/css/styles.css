@@ -1628,4 +1628,106 @@ section {
 .concern-item {
     border-left: 3px solid #ef4444;
     padding-left: 15px !important;
+}
+
+/* Enhanced Queue Status Styles */
+.queue-status-content {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.queue-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--text-secondary);
+}
+
+.queue-active .queue-indicator {
+    background: var(--accent);
+    animation: pulse 2s infinite;
+}
+
+.queue-idle .queue-indicator {
+    background: var(--success);
+}
+
+.queue-offline .queue-indicator {
+    background: var(--error);
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.4; }
+    100% { opacity: 1; }
+}
+
+.processing-badge {
+    background: var(--accent);
+    color: var(--bg-primary);
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.9em;
+    font-weight: 500;
+    animation: pulse 2s infinite;
+}
+
+.queue-details {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    margin: 12px 0;
+    color: var(--text-secondary);
+    font-size: 0.9em;
+}
+
+.queue-eta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.queue-eta::before {
+    content: "🕒";
+    font-size: 1.1em;
+}
+
+/* Improved Progress Bar */
+.queue-progress {
+    height: 6px;
+    background: var(--bg-primary);
+    border-radius: 3px;
+    margin: 15px 0;
+    overflow: hidden;
+    position: relative;
+}
+
+.progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent) 0%, var(--accent-light) 100%);
+    transition: width 0.8s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.progress-bar::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.2) 50%,
+        transparent 100%
+    );
+    animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
 } 

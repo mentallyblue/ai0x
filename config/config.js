@@ -14,14 +14,11 @@ module.exports = {
         }
     },
     QUEUE_CONFIG: {
-        maxConcurrent: 50,
-        stallInterval: 30000, // 30 seconds
-        defaultJobOptions: {
-            attempts: 3,
-            backoff: {
-                type: 'exponential',
-                delay: 2000
-            }
-        }
+        maxQueueSize: 1000,          // Maximum items in queue
+        jobTimeout: 5 * 60 * 1000,   // 5 minutes
+        cleanupInterval: 60 * 1000,  // Cleanup every minute
+        resultsTTL: 60 * 60 * 1000,  // Keep results for 1 hour
+        maxRetries: 3,               // Maximum retries per job
+        retryDelay: 5000            // 5 seconds between retries
     }
 }; 
