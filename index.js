@@ -64,51 +64,79 @@ let lastInsightUpdate = null;
 // Add the insights endpoint here
 app.get('/api/insights', async (req, res) => {
     try {
-        // If we have recent insights (less than 5 minutes old), return them
         if (currentInsights && lastInsightUpdate && (Date.now() - lastInsightUpdate) < 300000) {
             return res.json(currentInsights);
         }
 
-        console.log('Fetching new insights...');
+        console.log('Initiating AI0x market analysis...');
         const analyses = await Repository.find()
             .select({
                 fullName: 1,
                 description: 1,
                 language: 1,
                 stars: 1,
+                forks: 1,
                 analysis: 1,
                 lastAnalyzed: 1,
-                summary: 1
+                summary: 1,
+                codeReview: 1,
+                securityAnalysis: 1
             })
-            .sort({ lastAnalyzed: -1 })
-            .limit(5);
+            .sort({ lastAnalyzed: -1 });
 
         const anthropic = new Anthropic({
             apiKey: process.env.ANTHROPIC_API_KEY,
         });
 
-        const prompt = `You are AI0x, a specialized code analysis AI focused on repository legitimacy and technical excellence. Analyze the following repositories and provide two distinct sections:
+        const prompt = `You are AI0x, a technical market analyst specialized in code repositories. Share your real-time market analysis.
 
-1. Quick Take (2-3 sentences max):
-A sharp, concise overview of the most interesting technical patterns or concerns you've noticed across these repositories.
+Current Analysis:
+You're analyzing ${analyses.length} repositories to determine their technical merit and investment potential.
 
-2. Deep Dive:
-- Technical Patterns: Identify common architectural choices and their implications
-- Security & Quality: Evaluate code quality patterns and potential security considerations
-- Innovation Spots: Highlight particularly clever or unique implementations
-- Improvement Areas: Suggest specific, actionable improvements
-- Cross-Repository Insights: Draw connections between different codebases
+Format your analysis EXACTLY as follows (include all sections and fields):
+
+# AI0x Market Index 📊
+[Market health score: 0-100]
+[One sentence market summary]
+
+# Top Performers 🏆
+[For each repository, format EXACTLY as:]
+**{full_repository_name}**
+N/A [Investment Rating: A+, A, B+, B, C+, C]
+[Key Strength: one line]
+[Market Potential: one line]
+[Risk Level: Low/Medium/High]
+
+# Market Trends 📈
+[2-3 sentences on emerging patterns and market direction]
+
+# Technical Edge 💡
+[For each notable repository:]
+→ {repository_name}: [one line technical advantage]
+
+# Investment Signals 🎯
+[For each repository, format EXACTLY as:]
+{repository_name}
+Growth: [0-10]
+Moat: [0-10]
+Timing: [0-10]
+Risk: [Low/Medium/High]
 
 Repository Data:
 ${JSON.stringify(analyses, null, 2)}
 
-Additional Context: Include analysis of AI0x itself (https://github.com/mentallyblue/ai0x) as a reference point.
+Style Guide:
+- Use EXACT formatting as shown above
+- Include ALL fields for each section
+- Use consistent rating scales
+- Be precise with numbers
+- Keep insights concise
 
-Keep the tone technical but accessible. Use markdown formatting for structure. Temperature: 0.7 for balanced analysis.`;
+Remember: This is a live market analysis feed. Be accurate and consistent with the format.`;
 
         const response = await anthropic.messages.create({
             model: 'claude-3-sonnet-20240229',
-            max_tokens: 1000,
+            max_tokens: 1500,
             temperature: 0.7,
             messages: [{ 
                 role: 'user', 
@@ -116,22 +144,34 @@ Keep the tone technical but accessible. Use markdown formatting for structure. T
             }]
         });
 
-        // Update the shared state
+        // Calculate market metrics
+        const marketMetrics = {
+            totalStars: analyses.reduce((acc, curr) => acc + (curr.stars || 0), 0),
+            averageScore: analyses.reduce((acc, curr) => acc + (curr.analysis?.finalScore || 0), 0) / analyses.length,
+            repoCount: analyses.length,
+            lastUpdate: Date.now()
+        };
+
         currentInsights = {
             analyses,
             insights: response.content[0].text,
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            meta: {
+                repositoriesAnalyzed: analyses.length,
+                uniqueLanguages: [...new Set(analyses.map(a => a.language))],
+                averageStars: analyses.reduce((acc, curr) => acc + (curr.stars || 0), 0) / analyses.length,
+                marketMetrics,
+                analysisGeneration: Date.now()
+            }
         };
         lastInsightUpdate = Date.now();
 
-        // Broadcast to all connected clients
         io.emit('insightsUpdate', currentInsights);
-
         res.json(currentInsights);
     } catch (error) {
-        console.error('Error generating insights:', error);
+        console.error('Error in AI0x market analysis:', error);
         res.status(500).json({ 
-            error: 'Failed to generate insights',
+            error: 'Market analysis interrupted',
             details: error.message 
         });
     }
