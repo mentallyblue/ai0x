@@ -1,29 +1,23 @@
 {
   "name": "github-repo-analyzer",
   "version": "1.0.0",
-  "description": "GitHub repository analyzer using LLM",
+  "description": "",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.14.1",
-    "agent-twitter-client": "^0.0.18",
-    "axios": "^1.6.7",
-    "bull": "^4.16.5",
-    "dotenv": "^16.4.1",
+    "@anthropic-ai/sdk": "^0.17.1",
+    "better-queue": "^3.8.12",
+    "dotenv": "^16.0.3",
     "express": "^4.18.2",
-    "express-rate-limit": "^7.1.5",
-    "express-session": "^1.18.1",
-    "ioredis": "^5.4.2",
-    "marked": "^12.0.0",
-    "mongoose": "^8.2.0",
-    "node-cron": "^3.0.3",
-    "rate-limit-redis": "^4.2.0",
-    "socket.io": "^4.8.1"
+    "express-rate-limit": "^6.7.0",
+    "express-session": "^1.17.3",
+    "mongoose": "^7.0.3",
+    "socket.io": "^4.6.1"
   },
   "devDependencies": {
-    "nodemon": "^3.0.3"
+    "nodemon": "^2.0.22"
   }
 }
