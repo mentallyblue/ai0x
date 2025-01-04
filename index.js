@@ -57,9 +57,40 @@ connectDB();
 
 const PORT = process.env.PORT || 3000;
 
-// Add this near the top with other global variables
+// Add these variables at the top
 let currentInsights = null;
 let lastInsightUpdate = null;
+const UPDATE_INTERVAL = 300000; // 5 minutes
+let updateInterval;
+
+// Add an interval to check for updates
+function startInsightUpdates() {
+    updateInterval = setInterval(async () => {
+        try {
+            const analyses = await Repository.find()
+                .sort({ lastAnalyzed: -1 })
+                .select('lastAnalyzed')
+                .limit(1);
+            
+            // If newest analysis is more recent than our last update, refresh insights
+            if (analyses[0] && analyses[0].lastAnalyzed > lastInsightUpdate) {
+                const response = await fetch(`http://localhost:${PORT}/api/insights`);
+                const data = await response.json();
+                io.emit('insightsUpdate', data);
+            }
+        } catch (error) {
+            console.error('Auto-update check failed:', error);
+        }
+    }, UPDATE_INTERVAL);
+}
+
+// Start the update interval when the server starts
+startInsightUpdates();
+
+// Clean up on server shutdown
+process.on('SIGTERM', () => {
+    clearInterval(updateInterval);
+});
 
 // Add the insights endpoint here
 app.get('/api/insights', async (req, res) => {
