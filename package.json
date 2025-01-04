@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.14.1",
+    "agent-twitter-client": "^0.0.18",
     "axios": "^1.6.7",
     "bull": "^4.16.5",
     "dotenv": "^16.4.1",

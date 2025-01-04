@@ -16,6 +16,7 @@ const Repository = require('./models/Repository');
 const ApiKey = require('./models/ApiKey');
 const apiRouter = require('./routes/api');
 const { Anthropic } = require('@anthropic-ai/sdk');
+const { Scraper } = require('agent-twitter-client');
 
 // Set up middleware
 app.use(express.json());
@@ -60,8 +61,96 @@ const PORT = process.env.PORT || 3000;
 // Add these variables at the top
 let currentInsights = null;
 let lastInsightUpdate = null;
-const UPDATE_INTERVAL = 300000; // 5 minutes
+const UPDATE_INTERVAL = 3600000; // 1 hour instead of 5 minutes
 let updateInterval;
+let twitterClient;
+const TWEET_INTERVAL = 3600000 * 4; // Tweet every 4 hours
+let lastTweetTime = null;
+const MIN_TWEET_INTERVAL = 300000; // 5 minutes minimum between tweets
+let lastTweetContent = null; // Store last tweet to prevent duplicates
+
+// Initialize Twitter client
+async function initializeTwitterClient() {
+    try {
+        twitterClient = new Scraper();
+        await twitterClient.login(
+            process.env.TWITTER_USERNAME,
+            process.env.TWITTER_PASSWORD,
+            process.env.TWITTER_EMAIL
+        );
+        console.log('Twitter client initialized successfully');
+    } catch (error) {
+        console.error('Failed to initialize Twitter client:', error);
+    }
+}
+
+// Add this function after other function definitions
+async function tweetInsights(insights) {
+    if (!twitterClient) return;
+    
+    // Check minimum time interval
+    if (lastTweetTime && (Date.now() - lastTweetTime) < MIN_TWEET_INTERVAL) {
+        console.log('Skipping tweet - too soon since last update');
+        return;
+    }
+    
+    try {
+        // Extract key sections using regex
+        const marketSection = insights.match(/# AI0x Market Index 📊\n(.*?)\n/s);
+        const topPerformers = insights.match(/# Top Performers 🏆\n(.*?)(?=\n#)/s);
+        const trends = insights.match(/# Market Trends 📈\n(.*?)(?=\n#)/s);
+        
+        if (!marketSection || !topPerformers) return;
+        
+        // Get top performers
+        const topRepos = topPerformers[1].match(/\*\*(.*?)\*\*/g)
+            ?.map(repo => repo.replace(/\*\*/g, ''))
+            ?.slice(0, 2) || [];
+
+        // Create tweet content
+        const tweetText = `yo just ran our daily market scan
+        
+${marketSection[1].toLowerCase()}
+
+been keeping an eye on ${topRepos[0]}, looking pretty solid rn
+
+${trends[1].trim().split('\n')[0].toLowerCase()}
+
+check out the full breakdown on ai0x.dev if ur interested`;
+        
+        const tweet = tweetText.replace(/\n\s+/g, '\n').trim();
+
+        // Check for duplicate content
+        if (tweet === lastTweetContent) {
+            console.log('Skipping duplicate tweet');
+            return;
+        }
+
+        await twitterClient.sendTweet(tweet);
+        lastTweetTime = Date.now();
+        lastTweetContent = tweet;
+        
+        // For follow-up tweets, also check for duplicates
+        if (topPerformers[1].includes('Investment Rating: A')) {
+            const followUpTweet = `btw if anyones looking for some serious projects to check out
+
+${topRepos.slice(0, 2).join(' and ')} are both showing some real potential
+
+not financial advice obviously but worth taking a look`;
+            
+            // Only send follow-up if it's different from the last tweet
+            if (followUpTweet !== lastTweetContent) {
+                setTimeout(async () => {
+                    await twitterClient.sendTweet(followUpTweet);
+                    lastTweetContent = followUpTweet;
+                }, 2000);
+            }
+        }
+        
+    } catch (error) {
+        console.error('Failed to send tweet:', error);
+    }
+}
 
 // Add an interval to check for updates
 function startInsightUpdates() {
@@ -72,7 +161,7 @@ function startInsightUpdates() {
                 .select('lastAnalyzed')
                 .limit(1);
             
-            // If newest analysis is more recent than our last update, refresh insights
+            // Only refreshes if there's new analysis data
             if (analyses[0] && analyses[0].lastAnalyzed > lastInsightUpdate) {
                 const response = await fetch(`http://localhost:${PORT}/api/insights`);
                 const data = await response.json();
@@ -198,6 +287,10 @@ Remember: This is a live market analysis feed. Be accurate and consistent with t
         lastInsightUpdate = Date.now();
 
         io.emit('insightsUpdate', currentInsights);
+        
+        // Add this line to tweet the insights
+        await tweetInsights(response.content[0].text);
+        
         res.json(currentInsights);
     } catch (error) {
         console.error('Error in AI0x market analysis:', error);
@@ -316,6 +409,8 @@ app.get('/api/queue-position/:jobId', async (req, res) => {
 });
 
 app.use('/api', apiRouter);
+
+initializeTwitterClient();
 
 http.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
