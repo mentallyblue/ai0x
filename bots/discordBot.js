@@ -86,12 +86,36 @@ const commands = {
                 return message.reply('❌ Invalid GitHub repository URL\nExample: `!analyze https://github.com/owner/repo`');
             }
 
-            const statusMsg = await message.reply(`🔍 Analyzing repository: ${repoInfo.owner}/${repoInfo.repo}...`);
+            const statusMsg = await message.reply(`🔍 Checking repository: ${repoInfo.owner}/${repoInfo.repo}...`);
             
             try {
-                console.log(`Analyzing repo: ${repoInfo.owner}/${repoInfo.repo}`); // Debug log
-                const result = await queueTracker.addToQueue(`${repoInfo.owner}/${repoInfo.repo}`);
+                // Check if we have a recent analysis (less than 24 hours old)
+                const existingAnalysis = await Repository.findOne({
+                    owner: repoInfo.owner,
+                    repoName: repoInfo.repo,
+                    lastAnalyzed: { 
+                        $gt: new Date(Date.now() - 24 * 60 * 60 * 1000) 
+                    }
+                });
+
+                let result;
                 
+                if (existingAnalysis) {
+                    // Use cached analysis
+                    await statusMsg.edit(`📋 Found recent analysis for ${repoInfo.owner}/${repoInfo.repo}`);
+                    result = {
+                        analysis: existingAnalysis.analysis,
+                        repoDetails: {
+                            fullName: `${repoInfo.owner}/${repoInfo.repo}`,
+                            ...existingAnalysis
+                        }
+                    };
+                } else {
+                    // Perform new analysis
+                    await statusMsg.edit(`🔍 Analyzing repository: ${repoInfo.owner}/${repoInfo.repo}...`);
+                    result = await queueTracker.addToQueue(`${repoInfo.owner}/${repoInfo.repo}`);
+                }
+
                 if (!result || !result.analysis) {
                     throw new Error('Analysis failed to complete');
                 }
@@ -99,7 +123,7 @@ const commands = {
                 const analysisEmbed = new EmbedBuilder()
                     .setTitle(`AI0x Analysis: ${repoInfo.owner}/${repoInfo.repo}`)
                     .setColor('#00ff00')
-                    .setURL(`https://ai0x.fun/analysis/${repoInfo.owner}/${repoInfo.repo}`)
+                    .setURL(`https://ai0x.fun/analysis.html?repo=${repoInfo.owner}/${repoInfo.repo}`)
                     .addFields([
                         {
                             name: '📊 Technical Scores',
@@ -160,11 +184,11 @@ ${result.analysis.codeReview.investmentRanking.reasoning.map(r => `• ${r}`).jo
                         new ButtonBuilder()
                             .setLabel('View Full Analysis')
                             .setStyle(ButtonStyle.Link)
-                            .setURL(`https://ai0x.fun/analysis/${repoInfo.owner}/${repoInfo.repo}`)
+                            .setURL(`https://ai0x.fun/analysis.html?repo=${repoInfo.owner}/${repoInfo.repo}`)
                     );
 
                 await statusMsg.edit({ 
-                    content: `✅ Analysis complete for ${repoInfo.owner}/${repoInfo.repo}`,
+                    content: `✅ ${existingAnalysis ? 'Cached' : 'Fresh'} analysis for ${repoInfo.owner}/${repoInfo.repo}`,
                     embeds: [analysisEmbed],
                     components: [row]
                 });
@@ -225,7 +249,7 @@ ${repo.analysis?.codeReview?.redFlags?.length ? '⚠️ Red Flags:\n' +
                         new ButtonBuilder()
                             .setLabel(`View ${repo.fullName} Analysis`)
                             .setStyle(ButtonStyle.Link)
-                            .setURL(`https://ai0x.fun/analysis/${repo.fullName}`)
+                            .setURL(`https://ai0x.fun/analysis.html?repo=${repo.fullName}`)
                     )
             );
 
@@ -347,6 +371,10 @@ function getGrade(score) {
 
 client.on('ready', () => {
     console.log(`Bot logged in as ${client.user.tag}`);
+    
+    // Generate and log invite link
+    const inviteLink = `https://discord.com/api/oauth2/authorize?client_id=${client.user.id}&permissions=274878221312&scope=bot%20applications.commands`;
+    console.log(`Invite Link: ${inviteLink}`);
 });
 
 client.on('messageCreate', async (message) => {

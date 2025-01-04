@@ -23,7 +23,8 @@
     "mongoose": "^8.2.0",
     "node-cron": "^3.0.3",
     "rate-limit-redis": "^4.2.0",
-    "socket.io": "^4.8.1"
+    "socket.io": "^4.8.1",
+    "telegraf": "^4.16.3"
   },
   "devDependencies": {
     "nodemon": "^3.0.3"
