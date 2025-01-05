@@ -1,5 +1,4 @@
 const { Telegraf } = require('telegraf');
-const { queueTracker } = require('../services/queueService');
 const Repository = require('../models/Repository');
 
 // Rate limiting setup
@@ -281,12 +280,15 @@ bot.catch((err, ctx) => {
 
 const startBot = async () => {
     try {
-        // Try to stop any existing bot instance first
-        await bot.telegram.deleteWebhook({ drop_pending_updates: true });
-        
-        // Start the bot with better error handling
+        // Only start bot if not in development
+        if (process.env.NODE_ENV === 'development') {
+            console.log('Skipping Telegram bot in development mode');
+            return;
+        }
+
+        // Start the bot
         await bot.launch({
-            dropPendingUpdates: true // Ignore messages received while offline
+            dropPendingUpdates: true
         });
         
         console.log('Telegram bot started successfully');
@@ -302,25 +304,12 @@ const startBot = async () => {
         });
 
     } catch (error) {
-        if (error.response?.error_code === 409) {
-            console.log('Another bot instance is running. Attempting to stop it...');
-            try {
-                // Force stop the old instance
-                await bot.telegram.deleteWebhook({ drop_pending_updates: true });
-                // Wait a moment
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                // Try launching again
-                await bot.launch({ dropPendingUpdates: true });
-                console.log('Successfully started new bot instance');
-            } catch (retryError) {
-                console.error('Failed to start bot after retry:', retryError);
-                throw retryError;
-            }
-        } else {
-            console.error('Error starting Telegram bot:', error);
-            throw error;
-        }
+        console.error('Error starting Telegram bot:', error);
+        throw error;
     }
 };
 
-module.exports = { startBot }; 
+module.exports = {
+    startBot,
+    bot
+}; 

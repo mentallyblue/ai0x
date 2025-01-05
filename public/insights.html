@@ -775,22 +775,54 @@
         function formatMarketDashboard(marketScore, data) {
             return `
                 <div class="market-dashboard">
-                    <div class="market-score">
-                        <div class="score-label">Market Health</div>
-                        <div class="score-value">${marketScore}</div>
-                        <div class="score-scale">/100</div>
-                    </div>
-                    <div class="metric-box">
-                        <div class="label">Projects</div>
-                        <div class="value">${data.meta.repositoriesAnalyzed}</div>
-                    </div>
-                    <div class="metric-box">
-                        <div class="label">Languages</div>
-                        <div class="value">${data.meta.uniqueLanguages.length}</div>
-                    </div>
-                    <div class="metric-box">
-                        <div class="label">Avg Stars</div>
-                        <div class="value">${Math.round(data.meta.averageStars).toLocaleString()}</div>
+                    <div class="market-metrics">
+                        <div class="metric-box">
+                            <div class="metric-header">
+                                <h3>Technical Score</h3>
+                                <div class="score ${getScoreClass(data.technical.codeQuality)}">
+                                    ${data.technical.codeQuality}/100
+                                </div>
+                            </div>
+                            <div class="metric-details">
+                                <div class="metric-row">
+                                    <span>Code Quality</span>
+                                    <div class="progress-bar">
+                                        <div class="fill" style="width: ${data.technical.codeQuality}%"></div>
+                                    </div>
+                                </div>
+                                <div class="metric-row">
+                                    <span>Architecture</span>
+                                    <div class="progress-bar">
+                                        <div class="fill" style="width: ${data.technical.architectureScore}%"></div>
+                                    </div>
+                                </div>
+                                <div class="metric-row">
+                                    <span>Security</span>
+                                    <div class="progress-bar">
+                                        <div class="fill" style="width: ${data.technical.securityScore}%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="metric-box">
+                            <div class="metric-header">
+                                <h3>Market Position</h3>
+                                <div class="score ${getScoreClass(data.market.trendingScore)}">
+                                    ${data.market.trendingScore}/100
+                                </div>
+                            </div>
+                            <div class="community-metrics">
+                                <div class="stat-row">
+                                    <span>Growth Rate</span>
+                                    <span>${data.market.growthMetrics.rate}%</span>
+                                </div>
+                                <div class="stat-row">
+                                    <span>Community Health</span>
+                                    <span>${data.market.communityHealth.score}/100</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             `;

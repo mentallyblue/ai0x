@@ -9,6 +9,18 @@ const {
     calculateFinalLegitimacyScore
 } = require('../utils/analysisUtils');
 const { saveAnalysis } = require('./historyManager');
+const TwitterAgent = require('./twitterAgent');
+
+let twitterAgent = null;
+
+// Initialize twitter agent
+const initTwitterAgent = async () => {
+    if (!twitterAgent) {
+        twitterAgent = new TwitterAgent();
+        await twitterAgent.init();
+    }
+    return twitterAgent;
+};
 
 const anthropic = new Anthropic({
     apiKey: process.env.ANTHROPIC_API_KEY,
@@ -194,6 +206,11 @@ Remember to highlight what makes this repo special or noteworthy from a technica
 
         const summary = summaryResponse.content[0].text.trim();
 
+        // Initialize twitter agent if needed
+        if (!twitterAgent) {
+            twitterAgent = await initTwitterAgent();
+        }
+
         // Save to history
         await saveAnalysis(repoDetails, {
             codeReview,
@@ -201,6 +218,12 @@ Remember to highlight what makes this repo special or noteworthy from a technica
             trustScore,
             finalLegitimacyScore
         }, scores, summary);
+
+        // Trigger tweet generation if it's an interesting finding
+        if (finalLegitimacyScore > 75 || 
+            codeReview.aiAnalysis.score > 80) {
+            await twitterAgent.processRecentAnalyses();
+        }
 
         // Return complete analysis object
         return {

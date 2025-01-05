@@ -22,6 +22,7 @@ const { startBot: startDiscordBot } = require('./bots/discordBot');
 const { startBot: startTelegramBot } = require('./bots/telegramBot');
 const v8 = require('v8');
 const MongoStore = require('connect-mongo');
+const Scheduler = require('./services/scheduler');
 
 // Set up middleware
 app.use(express.json());
@@ -42,18 +43,8 @@ io.on('connection', (socket) => {
     });
 });
 
-// Now import queueTracker after Socket.IO is set up
-const { queueTracker } = require('./services/queueService');
-
 // Connect to MongoDB
 connectDB();
-
-const PORT = process.env.PORT || 3000;
-
-// Add these variables at the top
-let currentInsights = null;
-let lastInsightUpdate = null;
-const UPDATE_INTERVAL = 3600000 * 4; // Check every 4 hours
 
 // Add memory monitoring
 setInterval(() => {
@@ -64,14 +55,14 @@ setInterval(() => {
     
     if (heapUsed > 90) {
         console.warn('High memory usage detected!');
-        global.gc && global.gc(); // Force garbage collection if available
+        global.gc && global.gc();
     }
-}, 300000); // Check every 5 minutes
+}, 300000);
 
-// Rest of your existing routes...
+// Routes
 app.use('/api', apiRouter);
 
-// Update MongoDB connection settings
+// MongoDB connection
 mongoose.connect(process.env.MONGODB_URI, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
@@ -83,16 +74,7 @@ mongoose.connect(process.env.MONGODB_URI, {
 .then(() => console.log('MongoDB connected'))
 .catch(err => console.error('MongoDB connection error:', err));
 
-// Add reconnection handling
-mongoose.connection.on('disconnected', () => {
-    console.log('MongoDB disconnected. Attempting to reconnect...');
-});
-
-mongoose.connection.on('error', (err) => {
-    console.error('MongoDB error:', err);
-});
-
-// Update session configuration
+// Session configuration
 app.use(session({
     secret: process.env.SESSION_SECRET || 'your-secret-key',
     resave: false,
@@ -103,7 +85,7 @@ app.use(session({
     })
 }));
 
-// Add error handling for authentication
+// Error handling middleware
 app.use((err, req, res, next) => {
     if (err.message === 'Failed to find request token in session') {
         console.error('Authentication error:', err);
@@ -112,41 +94,58 @@ app.use((err, req, res, next) => {
     next(err);
 });
 
-// Add environment check
-const isProduction = process.env.NODE_ENV === 'production';
+// Health check endpoint
+app.get('/health', (req, res) => {
+    const isDbConnected = mongoose.connection.readyState === 1;
+    if (isDbConnected) {
+        res.status(200).json({ status: 'healthy', db: 'connected' });
+    } else {
+        res.status(503).json({ status: 'unhealthy', db: 'disconnected' });
+    }
+});
 
-// Add error handling for Telegram bot initialization
-const initTelegramBot = async () => {
+// Initialize bots
+const initializeBots = async () => {
     try {
-        await startTelegramBot();
+        await startDiscordBot();
+        
+        // Only start Telegram bot in production
+        if (process.env.NODE_ENV !== 'development') {
+            try {
+                await startTelegramBot();
+                console.log('Telegram bot started successfully');
+            } catch (error) {
+                console.error('Failed to initialize Telegram bot:', error);
+            }
+        } else {
+            console.log('Skipping Telegram bot initialization in development mode');
+        }
+
+        console.log('Bot initialization complete');
     } catch (error) {
-        console.error('Failed to initialize Telegram bot:', error);
-        // Wait 5 seconds and try again
-        console.log('Retrying Telegram bot initialization in 5 seconds...');
-        setTimeout(initTelegramBot, 5000);
+        console.error('Error initializing bots:', error);
     }
 };
 
-// Update the production check
-if (isProduction) {
-    startDiscordBot();
-    initTelegramBot(); // Use the new initialization function
-    console.log('Started bots in production mode');
-} else {
-    startDiscordBot();
-    console.log('Development mode: Telegram bot disabled');
-}
+// Start the application
+const startApp = async () => {
+    try {
+        await connectDB();
+        console.log('Connected to MongoDB');
 
-http.listen(PORT, () => {
-    console.log(`Server running on port ${PORT} in ${isProduction ? 'production' : 'development'} mode`);
-});
+        const port = process.env.PORT || 3000;
+        http.listen(port, () => {
+            console.log(`Server running on port ${port}`);
+        });
 
-// Add error handling for the HTTP server
-http.on('error', (error) => {
-    console.error('HTTP Server error:', error);
-});
+        await initializeBots();
+    } catch (error) {
+        console.error('Application startup error:', error);
+        process.exit(1);
+    }
+};
 
-// Add proper shutdown handling
+// Graceful shutdown
 process.on('SIGTERM', () => {
     console.log('SIGTERM received. Shutting down gracefully...');
     http.close(() => {
@@ -155,27 +154,7 @@ process.on('SIGTERM', () => {
     });
 });
 
-// Add near the top with other routes
-app.get('/health', (req, res) => {
-    // Check MongoDB connection
-    const isDbConnected = mongoose.connection.readyState === 1;
-    
-    if (isDbConnected) {
-        res.status(200).json({ status: 'healthy', db: 'connected' });
-    } else {
-        res.status(503).json({ status: 'unhealthy', db: 'disconnected' });
-    }
-});
+// This will start the tweet generation schedule
+const schedulerInstance = new Scheduler();
 
-// Add error handling for Telegram bot initialization
-const startTelegramBot = async () => {
-    try {
-        await startBot();
-    } catch (error) {
-        if (error.response?.error_code === 409) {
-            console.log('Telegram bot instance already running elsewhere. Skipping initialization.');
-        } else {
-            console.error('Error starting Telegram bot:', error);
-        }
-    }
-}; 
+startApp(); 

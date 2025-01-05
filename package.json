@@ -11,7 +11,7 @@
     "@anthropic-ai/sdk": "^0.14.1",
     "@octokit/rest": "^19.0.13",
     "agent-twitter-client": "^0.0.18",
-    "axios": "^1.6.7",
+    "axios": "^1.7.9",
     "bull": "^4.16.5",
     "connect-mongo": "^5.1.0",
     "discord.js": "^14.17.2",
@@ -24,6 +24,7 @@
     "mongoose": "^8.2.0",
     "node-cron": "^3.0.3",
     "rate-limit-redis": "^4.2.0",
+    "scheduler": "^0.25.0",
     "socket.io": "^4.8.1",
     "telegraf": "^4.16.3"
   },
