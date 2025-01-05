@@ -1,189 +1,263 @@
 <div align="center">
   <img src="public/images/image.jpg" alt="AI0x Logo" width="200" height="200" style="border-radius: 50%"/>
-  <h1>AI0x - AI-Powered Market Intelligence for Code</h1>
+  <h1>AI0x</h1>
+  <h3>Market Intelligence Platform for Code Analysis</h3>
+
+  <p align="center">
+    <a href="https://x.com/ai0xdotfun">
+      <img src="https://img.shields.io/twitter/follow/ai0xdotfun?style=flat&label=Follow&logo=twitter&color=0bf&logoColor=fff" alt="Follow AI0x on Twitter"/>
+    </a>
+    <a href="https://discord.gg/sT4aCagN6v">
+      <img src="https://img.shields.io/discord/1234567890?style=flat&logo=discord&logoColor=fff&color=7289da" alt="Join our Discord"/>
+    </a>
+    <a href="https://t.me/ai0xportal">
+      <img src="https://img.shields.io/badge/Telegram-Join-26A5E4?style=flat&logo=telegram&logoColor=fff" alt="Join our Telegram"/>
+    </a>
+    <a href="https://github.com/ai0x/ai0x/blob/main/LICENSE">
+      <img src="https://img.shields.io/github/license/ai0x/ai0x?style=flat&color=0&label=License" alt="License"/>
+    </a>
+  </p>
 </div>
 
-AI0x is a real-time market intelligence platform powered by Claude AI that analyzes GitHub repositories to provide technical assessments and market insights. Our platform combines advanced code analysis with market sentiment data to deliver comprehensive project evaluations, helping identify promising technical innovations and potential risks in the rapidly evolving AI/ML ecosystem.
+## Overview
 
-## Core Features
+AI0x is a real-time market intelligence platform that provides technical assessments and market insights for GitHub repositories. By combining deep code analysis with market sentiment data, we help identify promising technical innovations and potential risks in the rapidly evolving software ecosystem.
 
-### Technical Analysis
-- Repository code quality assessment (25 points)
-  - Code organization and patterns
-  - Error handling and resilience
-  - Performance optimization
-  - Best practices adherence
-  - Security considerations
-- Project structure evaluation (25 points)
-  - Directory organization
-  - Dependency management
-  - Configuration approach
-  - Build system
-  - Resource organization
-- Implementation verification (25 points)
-  - Core functionality implementation
-  - API integrations
-  - Data flow and state management
-  - Security practices
-  - Code efficiency
-- Documentation assessment (25 points)
-  - Code comments and documentation
-  - API documentation
-  - Setup instructions
-  - Architecture documentation
-  - Usage examples
-
-### AI Analysis
-- AI implementation detection
-- Technical claims verification
-- Implementation quality assessment (Poor/Basic/Good/Excellent)
-- Misleading level evaluation (None/Low/Medium/High)
-- AI score calculation (0-100)
-- Model integration verification
-- Data processing validation
-
-### Market Intelligence
-- Technical legitimacy scoring (0-100)
-- Risk level assessment (Low/Medium/High/Extreme)
-- Implementation confidence scoring (0-100%)
-- Investment rating system
-- Growth potential evaluation
-- Technical trend detection
-- Automated social updates
-
-### Real-time Analysis System
-- WebSocket-based live updates
-- Queue management system
-- Analysis progress tracking
-- Market data refreshes
-- Social platform integration
-- Queue position monitoring
-- Real-time notifications
-
-## Technical Stack
-
-### Frontend
-- HTML5/CSS3
-- Vanilla JavaScript
-- WebSocket integration
-- Responsive design
-- Real-time updates
-- Mermaid.js for diagrams
-- Marked.js for Markdown rendering
-
-### Analysis Engine
-- Claude 3 Sonnet (Anthropic)
-- Custom scoring algorithms
-- Real-time processing
-- Market data analysis
-- Risk assessment
-- Technical verification
-- Pattern detection
-
-### Backend
-- Node.js/Express
-- Socket.IO
-- MongoDB/Mongoose
-- Bull for queue management
-- Redis for caching
-- Rate limiting
-
-### Data Processing
-- Queue management with Bull
-- WebSocket servers (Socket.IO)
-- Market data aggregation
-- Social integration
-- Analytics pipeline
-- Real-time updates
-
-## Setup
-
-1. Clone the repository
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-
-3. Create `.env` file:
-   ```
-   ANTHROPIC_API_KEY=your_anthropic_api_key
-   GITHUB_TOKEN=your_github_token
-   MONGODB_URI=your_mongodb_connection_string
-   REDIS_URL=your_redis_url
-   PORT=3000
-   
-   # Social Integration
-   TWITTER_USERNAME=your_twitter_username
-   TWITTER_PASSWORD=your_twitter_password
-   DISCORD_WEBHOOK=your_discord_webhook
-   TELEGRAM_BOT_TOKEN=your_telegram_token
-   ```
-
-4. Start the server:
-   ```bash
-   npm start
-   ```
-
-For development:
-```bash
-npm run dev
+```mermaid
+graph TD
+    A[Repository Input] --> B[Technical Analysis]
+    B --> C[Code Quality]
+    B --> D[Project Structure]
+    B --> E[Implementation]
+    B --> F[Documentation]
+    C & D & E & F --> G[Legitimacy Score]
+    H[Market Data] --> G
+    G --> I[Final Assessment]
 ```
 
-## API Endpoints
+## Key Features
 
-### Analysis
-- `POST /api/analyze` - Submit repository for analysis
-- `GET /api/repository/:owner/:repo` - Get repository analysis
-- `GET /api/recent` - Get recent analyses
-- `GET /api/analyses` - Get all analyses
-- `GET /api/insights` - Get current market insights
-- `GET /api/trends` - Get technical trends report
+### Technical Assessment
+Our comprehensive analysis system evaluates repositories across four key dimensions:
+
+<table>
+<tr>
+<td width="25%">
+
+#### Code Quality
+- Organization
+- Error Handling
+- Performance
+- Best Practices
+- Security
+
+</td>
+<td width="25%">
+
+#### Project Structure
+- Architecture
+- Dependencies
+- Configuration
+- Build System
+- Resources
+
+</td>
+<td width="25%">
+
+#### Implementation
+- Core Features
+- API Design
+- Data Flow
+- Security
+- Efficiency
+
+</td>
+<td width="25%">
+
+#### Documentation
+- Code Comments
+- API Reference
+- Setup Guide
+- Architecture
+- Examples
+
+</td>
+</tr>
+</table>
+
+### Market Intelligence
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Platform
+    participant Analysis
+    participant Market
+    
+    User->>Platform: Submit Repository
+    Platform->>Analysis: Process Code
+    Analysis->>Market: Gather Data
+    Market-->>Analysis: Market Context
+    Analysis-->>Platform: Generate Insights
+    Platform-->>User: Deliver Report
+```
+
+- Technical legitimacy scoring (0-100)
+- Risk assessment (Low to Extreme)
+- Implementation confidence metrics
+- Investment potential rating
+- Growth trajectory analysis
+- Technical trend detection
+- Automated market updates
+
+### Real-time Processing
+
+- Live WebSocket updates
+- Queue management system
+- Progress tracking
+- Market data refreshes
+- Social platform integration
+- Position monitoring
+- Instant notifications
+
+## Architecture
+
+### Technology Stack
+
+<table>
+<tr>
+<td width="25%">
+
+#### Frontend
+- HTML5/CSS3
+- JavaScript
+- WebSocket
+- Mermaid.js
+- Marked.js
+
+</td>
+<td width="25%">
+
+#### Backend
+- Node.js/Express
+- Socket.IO
+- MongoDB
+- Redis
+- Bull
+
+</td>
+<td width="25%">
+
+#### Analysis
+- Claude 3 Sonnet
+- Custom Algorithms
+- Pattern Detection
+- Risk Assessment
+
+</td>
+<td width="25%">
+
+#### Integration
+- GitHub API
+- Discord.js
+- Telegraf
+- Twitter API
+- WebSocket
+
+</td>
+</tr>
+</table>
+
+## Getting Started
+
+### Prerequisites
+- Node.js 16+
+- MongoDB
+- Redis
+
+### Installation
+
+1. Clone the repository
+```bash
+git clone https://github.com/ai0x/ai0x.git
+cd ai0x
+```
+
+2. Install dependencies
+```bash
+npm install
+```
+
+3. Configure environment
+```bash
+# .env
+ANTHROPIC_API_KEY=your_key
+GITHUB_TOKEN=your_token
+MONGODB_URI=mongodb://localhost/ai0x
+REDIS_URL=redis://localhost:6379
+PORT=3000
+
+# Social Integration
+TWITTER_USERNAME=your_username
+TWITTER_PASSWORD=your_password
+DISCORD_WEBHOOK=your_webhook
+TELEGRAM_BOT_TOKEN=your_token
+```
+
+4. Start the server
+```bash
+# Development
+npm run dev
+
+# Production
+npm start
+```
+
+## API Reference
+
+### Analysis Endpoints
+```http
+POST /api/analyze
+GET  /api/repository/:owner/:repo
+GET  /api/recent
+GET  /api/analyses
+GET  /api/insights
+GET  /api/trends
+```
 
 ### Queue Management
-- `GET /api/queue-position/:jobId` - Get position in analysis queue
-- `GET /api/queue/status` - Get current queue status
-- `POST /api/cleanup` - Clear analysis history
+```http
+GET  /api/queue-position/:jobId
+GET  /api/queue/status
+POST /api/cleanup
+```
 
 ## Security
 
-### Data Protection
+### Protection Measures
 - Secure WebSocket connections
 - API authentication
-- Express rate limiting
-- Redis-based rate limiting
+- Rate limiting (Express + Redis)
 - Data encryption
 - Access control
 - Session management
 
-### Risk Mitigation
+### Risk Management
 - Input validation
 - Error handling
 - Audit logging
 - Backup systems
-- Monitoring
+- Continuous monitoring
 - Security best practices
 
-## Social Integration
+## Community
 
-### Platform Connectivity
-- X (Twitter): 
-  - Market updates
-  - Technical alerts
-  - Trend analysis
-  - Project highlights
-  - Risk notifications
-- Discord: 
-  - Community insights
-  - Real-time notifications
-  - Technical discussions
-  - Analysis updates
-  - Market alerts
-- Telegram: 
-  - Market alerts
-  - Project updates
-  - Community engagement
-  - Technical insights
-  - Trend reports
+Join our growing community:
+
+- 𝕏 [@ai0xdotfun](https://x.com/ai0xdotfun) - Market updates & alerts
+- [Discord](https://discord.gg/sT4aCagN6v) - Technical discussions
+- [Telegram](https://t.me/ai0xportal) - Project updates
+- [Issues](https://github.com/ai0x/ai0x/issues) - Bug reports & features
 
 ## Documentation
 
@@ -191,32 +265,24 @@ For detailed technical information, please refer to our [Technical Whitepaper](p
 
 ## Dependencies
 
-Key packages:
-- @anthropic-ai/sdk: ^0.14.1
-- @octokit/rest: ^19.0.13
-- bull: ^4.16.5
-- discord.js: ^14.17.2
-- express: ^4.18.2
-- ioredis: ^5.4.2
-- mongoose: ^8.2.0
-- socket.io: ^4.8.1
-- telegraf: ^4.16.3
+```json
+{
+  "@anthropic-ai/sdk": "^0.14.1",
+  "@octokit/rest": "^19.0.13",
+  "bull": "^4.16.5",
+  "discord.js": "^14.17.2",
+  "express": "^4.18.2",
+  "ioredis": "^5.4.2",
+  "mongoose": "^8.2.0",
+  "socket.io": "^4.8.1",
+  "telegraf": "^4.16.3"
+}
+```
 
 ## Contributing
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## Support
-
-- GitHub Issues: For bug reports and feature requests
-- Discord: Join our [community](https://discord.gg/sT4aCagN6v)
-- Telegram: Join our [channel](https://t.me/ai0xportal)
-- Twitter: Follow us [@ai0xdotfun](https://x.com/ai0xdotfun)
+We welcome contributions!
 
 ## License
 
-This project is licensed under the MIT License
+This project is licensed under the MIT License 
