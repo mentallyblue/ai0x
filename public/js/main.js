@@ -13,14 +13,8 @@ async function analyzeRepo() {
         return;
     }
 
-    analyzeButton.disabled = true;
-    analyzeButton.classList.add('processing');
-    analyzeButton.innerHTML = '<span class="spinner"></span> Processing...';
-
-    const resultDiv = document.getElementById('result');
-    resultDiv.innerHTML = '<div class="loading">Checking repository status...</div>';
-
     try {
+        // First check if we have a cached result
         const response = await fetch('/api/analyze', {
             method: 'POST',
             headers: {
@@ -29,40 +23,49 @@ async function analyzeRepo() {
             body: JSON.stringify({ repoUrl })
         });
 
-        const data = await response.json();
-        
         if (!response.ok) {
-            throw new Error(data.error || 'Failed to analyze repository');
+            throw new Error('Failed to analyze repository');
         }
 
-        // Check for cached result first
-        if (data.cached) {
-            console.log('Loading cached analysis');
+        const data = await response.json();
+        
+        // Only update UI after we know the request succeeded
+        analyzeButton.disabled = true;
+        analyzeButton.classList.add('processing');
+        analyzeButton.innerHTML = '<span class="spinner"></span> Processing...';
+
+        const resultDiv = document.getElementById('result');
+        resultDiv.innerHTML = '<div class="loading">Analyzing repository...</div>';
+
+        // Handle cached results
+        if (data.cached && data.result) {
+            console.log('Found cached analysis');
             displayAnalysis(data.result);
             enableAnalyzeButton();
             return;
         }
 
-        // Handle direct results (non-cached but immediate)
+        // Handle immediate results
         if (data.repoDetails && data.analysis) {
-            console.log('Loading fresh analysis results');
+            console.log('Got immediate analysis');
             displayAnalysis({ repoDetails: data.repoDetails, analysis: data.analysis });
             enableAnalyzeButton();
             return;
         }
 
-        // If no immediate or cached result, check for jobId
-        if (!data.jobId) {
-            console.log('No jobId and no result:', data);
-            throw new Error('No analysis result available');
+        // Handle queued analysis
+        if (data.jobId) {
+            console.log('Analysis queued:', data.jobId);
+            window.activeJobId = data.jobId;
+            pollQueuePosition(data.jobId);
+            return;
         }
 
-        window.activeJobId = data.jobId;
-        console.log('Successfully queued analysis with jobId:', data.jobId);
-        pollQueuePosition(data.jobId);
+        throw new Error('Invalid response format from server');
 
     } catch (error) {
         console.error('Analysis error:', error);
+        const resultDiv = document.getElementById('result');
         resultDiv.innerHTML = `
             <div class="error">
                 <p>Error analyzing repository:</p>

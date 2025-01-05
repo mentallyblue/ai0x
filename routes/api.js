@@ -118,9 +118,18 @@ router.get('/recent', async (req, res) => {
 router.post('/analyze', async (req, res) => {
     try {
         const { repoUrl } = req.body;
+        
+        if (!repoUrl) {
+            return res.status(400).json({ error: 'Repository URL is required' });
+        }
+
         const repoInfo = parseGitHubUrl(repoUrl);
         
-        // Check for recent analysis first
+        if (!repoInfo) {
+            return res.status(400).json({ error: 'Invalid GitHub repository URL' });
+        }
+
+        // Check for cached result first
         const existingAnalysis = await Repository.findOne({
             owner: repoInfo.owner,
             repoName: repoInfo.repo,
@@ -130,24 +139,31 @@ router.post('/analyze', async (req, res) => {
         });
 
         if (existingAnalysis) {
-            // Return cached result immediately
+            console.log('Returning cached analysis for:', repoUrl);
             return res.json({
                 cached: true,
                 result: {
                     repoDetails: {
                         fullName: `${repoInfo.owner}/${repoInfo.repo}`,
-                        ...existingAnalysis
+                        ...existingAnalysis.toObject()
                     },
                     analysis: existingAnalysis.analysis
                 }
             });
         }
 
-        // Continue with queue/analysis process for non-cached results
-        // ... rest of your existing code
+        // Queue new analysis
+        const jobId = await analysisQueue.add(repoUrl);
+        console.log('Queued analysis job:', jobId, 'for:', repoUrl);
+        
+        return res.json({ jobId });
+
     } catch (error) {
-        console.error('Analysis error:', error);
-        res.status(500).json({ error: error.message });
+        console.error('Analysis request error:', error);
+        res.status(500).json({ 
+            error: 'Failed to process analysis request',
+            details: error.message 
+        });
     }
 });
 
