@@ -1,7 +1,8 @@
 async function analyzeRepo() {
     const analyzeButton = document.getElementById('analyzeButton');
+    const resultDiv = document.getElementById('result');
     
-    if (analyzeButton.disabled || window.activeJobId) {
+    if (analyzeButton.disabled) {
         console.log('Analysis already in progress');
         return;
     }
@@ -13,8 +14,13 @@ async function analyzeRepo() {
         return;
     }
 
+    // Disable button and show loading state
+    analyzeButton.disabled = true;
+    analyzeButton.classList.add('processing');
+    analyzeButton.innerHTML = '<span class="spinner"></span> Processing...';
+    resultDiv.innerHTML = '<div class="loading">Checking repository...</div>';
+
     try {
-        // First check if we have a cached result
         const response = await fetch('/api/analyze', {
             method: 'POST',
             headers: {
@@ -23,49 +29,32 @@ async function analyzeRepo() {
             body: JSON.stringify({ repoUrl })
         });
 
-        if (!response.ok) {
-            throw new Error('Failed to analyze repository');
-        }
-
         const data = await response.json();
         
-        // Only update UI after we know the request succeeded
-        analyzeButton.disabled = true;
-        analyzeButton.classList.add('processing');
-        analyzeButton.innerHTML = '<span class="spinner"></span> Processing...';
+        if (!response.ok || !data.success) {
+            throw new Error(data.error || 'Failed to analyze repository');
+        }
 
-        const resultDiv = document.getElementById('result');
-        resultDiv.innerHTML = '<div class="loading">Analyzing repository...</div>';
+        console.log('Analysis response:', data);
 
-        // Handle cached results
+        // Handle cached results immediately
         if (data.cached && data.result) {
-            console.log('Found cached analysis');
+            console.log('Displaying cached analysis results');
             displayAnalysis(data.result);
             enableAnalyzeButton();
             return;
         }
 
-        // Handle immediate results
-        if (data.repoDetails && data.analysis) {
-            console.log('Got immediate analysis');
-            displayAnalysis({ repoDetails: data.repoDetails, analysis: data.analysis });
-            enableAnalyzeButton();
-            return;
+        // For new analyses, start polling or wait for completion
+        if (data.result) {
+            console.log('Displaying new analysis results');
+            displayAnalysis(data.result);
+        } else {
+            throw new Error('No analysis results received');
         }
-
-        // Handle queued analysis
-        if (data.jobId) {
-            console.log('Analysis queued:', data.jobId);
-            window.activeJobId = data.jobId;
-            pollQueuePosition(data.jobId);
-            return;
-        }
-
-        throw new Error('Invalid response format from server');
 
     } catch (error) {
         console.error('Analysis error:', error);
-        const resultDiv = document.getElementById('result');
         resultDiv.innerHTML = `
             <div class="error">
                 <p>Error analyzing repository:</p>
@@ -73,8 +62,8 @@ async function analyzeRepo() {
                 <button onclick="analyzeRepo()" class="retry-button">Retry</button>
             </div>
         `;
+    } finally {
         enableAnalyzeButton();
-        window.activeJobId = null;
     }
 }
 

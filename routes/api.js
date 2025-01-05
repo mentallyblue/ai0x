@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { parseGitHubUrl } = require('../utils/githubUtils');
+const { parseGitHubUrl, getRepoDetails } = require('../utils/githubUtils');
 const Repository = require('../models/Repository');
 const { analyzeRepo } = require('../services/analyzer');
 const { Anthropic } = require('@anthropic-ai/sdk');
@@ -12,15 +12,32 @@ router.post('/analyze', async (req, res) => {
     try {
         const { repoUrl } = req.body;
         
+        console.log('Received analyze request for URL:', repoUrl);
+        
         if (!repoUrl) {
             return res.status(400).json({ error: 'Repository URL is required' });
         }
 
         const repoInfo = parseGitHubUrl(repoUrl);
+        console.log('Parsed repo info:', repoInfo);
         
-        if (!repoInfo) {
-            return res.status(400).json({ error: 'Invalid GitHub repository URL' });
+        if (!repoInfo || !repoInfo.owner || !repoInfo.repo) {
+            return res.status(400).json({ 
+                error: 'Invalid GitHub repository URL. Please use format: https://github.com/owner/repo' 
+            });
         }
+
+        try {
+            // Verify the repository exists
+            await getRepoDetails(repoInfo);
+        } catch (error) {
+            return res.status(404).json({ 
+                error: error.message || 'Repository not found'
+            });
+        }
+
+        // Log the actual URL being used for the GitHub API request
+        console.log('Making GitHub API request for:', `https://api.github.com/repos/${repoInfo.owner}/${repoInfo.repo}`);
 
         // Check for cached result first (24 hour cache)
         const existingAnalysis = await Repository.findOne({
@@ -29,14 +46,23 @@ router.post('/analyze', async (req, res) => {
             lastAnalyzed: { 
                 $gt: new Date(Date.now() - 24 * 60 * 60 * 1000) 
             }
-        });
+        }).lean();
 
         if (existingAnalysis) {
             console.log('Returning cached analysis for:', repoUrl);
             return res.json({
+                success: true,
                 cached: true,
                 result: {
-                    repoDetails: existingAnalysis,
+                    repoDetails: {
+                        fullName: existingAnalysis.fullName,
+                        description: existingAnalysis.description,
+                        forks: existingAnalysis.forks,
+                        owner: existingAnalysis.owner,
+                        repoName: existingAnalysis.repoName,
+                        language: existingAnalysis.language,
+                        stars: existingAnalysis.stars
+                    },
                     analysis: existingAnalysis.analysis
                 }
             });
@@ -44,17 +70,21 @@ router.post('/analyze', async (req, res) => {
 
         // If no cache, perform new analysis
         console.log('Performing new analysis for:', repoUrl);
-        const analysis = await analyzeRepo(repoUrl);
+        const analysis = await analyzeRepo(repoInfo); // Pass repoInfo instead of URL
         
         return res.json({
+            success: true,
             cached: false,
-            repoDetails: analysis.repoDetails,
-            analysis: analysis.analysis
+            result: {
+                repoDetails: analysis.repoDetails,
+                analysis: analysis.analysis
+            }
         });
 
     } catch (error) {
         console.error('Analysis request error:', error);
         res.status(500).json({ 
+            success: false,
             error: 'Failed to process analysis request',
             details: error.message 
         });

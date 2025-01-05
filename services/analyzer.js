@@ -1,5 +1,5 @@
 const Anthropic = require('@anthropic-ai/sdk');
-const { getRepoDetails, getRepoContents } = require('../utils/githubUtils');
+const { getRepoDetails, getRepoContents, parseGitHubUrl } = require('../utils/githubUtils');
 const { 
     sanitizeCodeContent, 
     getFileExtension,
@@ -16,8 +16,15 @@ const anthropic = new Anthropic({
 
 async function analyzeRepo(repoInfo) {
     try {
+        if (!repoInfo || !repoInfo.owner || !repoInfo.repo) {
+            throw new Error('Invalid repository info');
+        }
+
+        console.log('Analyzing repository:', repoInfo);
+        
         const repoDetails = await getRepoDetails(repoInfo);
-        const codeContents = await getRepoContents(repoInfo);
+        
+        const files = await getRepoContents(repoInfo);
         
         const analysisPrompt = `# Analysis Categories
 
@@ -102,7 +109,7 @@ Language: ${repoDetails.language}
 Stars: ${repoDetails.stargazers_count}
 
 # Code Review
-${codeContents.map(file => {
+${files.map(file => {
     const ext = getFileExtension(file.path);
     const sanitizedContent = sanitizeCodeContent(file.content);
     return `

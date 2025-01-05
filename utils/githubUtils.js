@@ -13,15 +13,24 @@ function extractRepoInfo(url) {
 }
 
 async function getRepoDetails({ owner, repo }) {
-    const githubToken = process.env.GITHUB_TOKEN;
-    const response = await axios.get(`https://api.github.com/repos/${owner}/${repo}`, {
-        headers: githubToken ? {
-            Authorization: `Bearer ${githubToken}`,
-            Accept: 'application/vnd.github.v3+json'
-        } : {}
-    });
-    
-    return response.data;
+    try {
+        const githubToken = process.env.GITHUB_TOKEN;
+        console.log(`Checking repository: ${owner}/${repo}`);
+        
+        const response = await axios.get(`https://api.github.com/repos/${owner}/${repo}`, {
+            headers: {
+                Authorization: `Bearer ${githubToken}`,
+                Accept: 'application/vnd.github.v3+json'
+            }
+        });
+        
+        return response.data;
+    } catch (error) {
+        if (error.response?.status === 404) {
+            throw new Error(`Repository ${owner}/${repo} does not exist`);
+        }
+        throw error;
+    }
 }
 
 async function getRepoContents(repoInfo, path = '', maxFiles = 50) {
@@ -83,20 +92,42 @@ function isRelevantFile(filename) {
 
 function parseGitHubUrl(url) {
     try {
-        // Handle both HTTPS and SSH URLs
-        const httpsRegex = /github\.com\/([^\/]+)\/([^\/\.]+)/;
-        const sshRegex = /git@github\.com:([^\/]+)\/([^\/\.]+)\.git/;
+        // Clean the URL
+        url = url.trim();
         
-        let match = url.match(httpsRegex) || url.match(sshRegex);
+        // Remove trailing slashes
+        url = url.replace(/\/+$/, '');
         
-        if (!match) {
-            throw new Error('Invalid GitHub URL format');
-        }
+        console.log('Cleaning URL:', url);
 
-        return {
-            owner: match[1],
-            repo: match[2].replace('.git', '')
-        };
+        // Handle HTTPS URLs
+        if (url.includes('github.com')) {
+            // Remove any trailing .git
+            url = url.replace(/\.git$/, '');
+            
+            // Updated regex to be more precise
+            const match = url.match(/github\.com\/([^\/\s]+)\/([^\/\s]+)/);
+            
+            if (!match) {
+                console.log('No match found for URL:', url);
+                return null;
+            }
+
+            const [, owner, repo] = match;
+            
+            // Clean and validate the results
+            const cleanOwner = owner.trim();
+            const cleanRepo = repo.trim();
+            
+            console.log('Parsed result:', { owner: cleanOwner, repo: cleanRepo });
+
+            // Validate the repository exists before returning
+            return {
+                owner: cleanOwner,
+                repo: cleanRepo
+            };
+        }
+        return null;
     } catch (error) {
         console.error('Error parsing GitHub URL:', error);
         return null;

@@ -28,4 +28,10 @@ const repositorySchema = new mongoose.Schema({
     summary: String
 });
 
+// Add index for faster cache lookups
+repositorySchema.index({ owner: 1, repoName: 1, lastAnalyzed: -1 });
+
+// Add compound index for common queries
+repositorySchema.index({ fullName: 1, lastAnalyzed: -1 });
+
 module.exports = mongoose.model('Repository', repositorySchema); 
