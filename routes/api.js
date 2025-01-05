@@ -118,27 +118,36 @@ router.get('/recent', async (req, res) => {
 router.post('/analyze', async (req, res) => {
     try {
         const { repoUrl } = req.body;
-        if (!repoUrl) {
-            return res.status(400).json({ error: 'Repository URL is required' });
-        }
-
-        console.log('Analyzing repo URL:', repoUrl);
-        
         const repoInfo = parseGitHubUrl(repoUrl);
-        if (!repoInfo || !repoInfo.owner || !repoInfo.repo) {
-            return res.status(400).json({ error: 'Invalid GitHub repository URL' });
+        
+        // Check for recent analysis first
+        const existingAnalysis = await Repository.findOne({
+            owner: repoInfo.owner,
+            repoName: repoInfo.repo,
+            lastAnalyzed: { 
+                $gt: new Date(Date.now() - 24 * 60 * 60 * 1000) 
+            }
+        });
+
+        if (existingAnalysis) {
+            // Return cached result immediately
+            return res.json({
+                cached: true,
+                result: {
+                    repoDetails: {
+                        fullName: `${repoInfo.owner}/${repoInfo.repo}`,
+                        ...existingAnalysis
+                    },
+                    analysis: existingAnalysis.analysis
+                }
+            });
         }
 
-        // Direct analysis without caching
-        const result = await queueTracker.addToQueue(`${repoInfo.owner}/${repoInfo.repo}`);
-        res.json(result);
-
+        // Continue with queue/analysis process for non-cached results
+        // ... rest of your existing code
     } catch (error) {
         console.error('Analysis error:', error);
-        res.status(500).json({ 
-            error: error.message || 'Failed to analyze repository',
-            details: process.env.NODE_ENV === 'development' ? error.stack : undefined
-        });
+        res.status(500).json({ error: error.message });
     }
 });
 

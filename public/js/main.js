@@ -35,17 +35,26 @@ async function analyzeRepo() {
             throw new Error(data.error || 'Failed to analyze repository');
         }
 
-        // Handle cached results
-        if (data.cached && data.result) {
+        // Check for cached result first
+        if (data.cached) {
             console.log('Loading cached analysis');
             displayAnalysis(data.result);
             enableAnalyzeButton();
             return;
         }
 
-        // Handle new analysis request
+        // Handle direct results (non-cached but immediate)
+        if (data.repoDetails && data.analysis) {
+            console.log('Loading fresh analysis results');
+            displayAnalysis({ repoDetails: data.repoDetails, analysis: data.analysis });
+            enableAnalyzeButton();
+            return;
+        }
+
+        // If no immediate or cached result, check for jobId
         if (!data.jobId) {
-            throw new Error('Invalid response from server');
+            console.log('No jobId and no result:', data);
+            throw new Error('No analysis result available');
         }
 
         window.activeJobId = data.jobId;
