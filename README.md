@@ -2,7 +2,7 @@
   <img src="public/images/image.jpg" alt="AI0x Logo" width="200" height="200" style="border-radius: 50%"/>
   <h1>AI0x</h1>
   <h3>Market Intelligence Platform for Code Analysis</h3>
-
+<h2>CA: 5M5cPVHs9K1FoNGNgp58dAFzGvU5G5fEADZHXTHwpump</h2>
   <p align="center">
     <a href="https://x.com/ai0xdotfun">
       <img src="https://img.shields.io/twitter/follow/ai0xdotfun?style=flat&label=Follow&logo=twitter&color=0bf&logoColor=fff" alt="Follow AI0x on Twitter"/>
@@ -13,9 +13,7 @@
     <a href="https://t.me/ai0xportal">
       <img src="https://img.shields.io/badge/Telegram-Join-26A5E4?style=flat&logo=telegram&logoColor=fff" alt="Join our Telegram"/>
     </a>
-    <a href="https://github.com/ai0x/ai0x/blob/main/LICENSE">
-      <img src="https://img.shields.io/github/license/ai0x/ai0x?style=flat&color=0&label=License" alt="License"/>
-    </a>
+   
   </p>
 </div>
 
