@@ -20,10 +20,14 @@ async function analyzeRepo(repoInfo) {
             throw new Error('Invalid repository info');
         }
 
-        console.log('Analyzing repository:', repoInfo);
+        console.log(`Performing new analysis for: ${repoInfo.owner}/${repoInfo.repo}`);
         
+        // Get repository details from GitHub
         const repoDetails = await getRepoDetails(repoInfo);
-        
+        if (!repoDetails) {
+            throw new Error('Repository not found');
+        }
+
         const files = await getRepoContents(repoInfo);
         
         const analysisPrompt = `# Analysis Categories

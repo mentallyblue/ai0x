@@ -279,13 +279,48 @@ bot.catch((err, ctx) => {
     ctx.reply('❌ An error occurred while processing your request. Please try again later.');
 });
 
-const startBot = () => {
-    bot.launch();
-    console.log('Telegram bot started');
+const startBot = async () => {
+    try {
+        // Try to stop any existing bot instance first
+        await bot.telegram.deleteWebhook({ drop_pending_updates: true });
+        
+        // Start the bot with better error handling
+        await bot.launch({
+            dropPendingUpdates: true // Ignore messages received while offline
+        });
+        
+        console.log('Telegram bot started successfully');
 
-    // Enable graceful stop
-    process.once('SIGINT', () => bot.stop('SIGINT'));
-    process.once('SIGTERM', () => bot.stop('SIGTERM'));
+        // Enable graceful shutdown
+        process.once('SIGINT', () => {
+            console.log('Stopping Telegram bot (SIGINT)');
+            bot.stop('SIGINT');
+        });
+        process.once('SIGTERM', () => {
+            console.log('Stopping Telegram bot (SIGTERM)');
+            bot.stop('SIGTERM');
+        });
+
+    } catch (error) {
+        if (error.response?.error_code === 409) {
+            console.log('Another bot instance is running. Attempting to stop it...');
+            try {
+                // Force stop the old instance
+                await bot.telegram.deleteWebhook({ drop_pending_updates: true });
+                // Wait a moment
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                // Try launching again
+                await bot.launch({ dropPendingUpdates: true });
+                console.log('Successfully started new bot instance');
+            } catch (retryError) {
+                console.error('Failed to start bot after retry:', retryError);
+                throw retryError;
+            }
+        } else {
+            console.error('Error starting Telegram bot:', error);
+            throw error;
+        }
+    }
 };
 
 module.exports = { startBot }; 

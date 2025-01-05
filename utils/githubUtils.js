@@ -13,9 +13,13 @@ function extractRepoInfo(url) {
 }
 
 async function getRepoDetails({ owner, repo }) {
+    if (!owner || !repo) {
+        throw new Error('Invalid repository info provided');
+    }
+
     try {
         const githubToken = process.env.GITHUB_TOKEN;
-        console.log(`Checking repository: ${owner}/${repo}`);
+        console.log(`Making GitHub API request for: ${owner}/${repo}`);
         
         const response = await axios.get(`https://api.github.com/repos/${owner}/${repo}`, {
             headers: {

@@ -21,6 +21,7 @@ const session = require('express-session');
 const { startBot: startDiscordBot } = require('./bots/discordBot');
 const { startBot: startTelegramBot } = require('./bots/telegramBot');
 const v8 = require('v8');
+const MongoStore = require('connect-mongo');
 
 // Set up middleware
 app.use(express.json());
@@ -91,15 +92,15 @@ mongoose.connection.on('error', (err) => {
     console.error('MongoDB error:', err);
 });
 
-// Add proper session configuration
+// Update session configuration
 app.use(session({
-    secret: 'your_secret_key',
-    cookie: {
-        secure: false, // Set to true in production with HTTPS
-        maxAge: 24 * 60 * 60 * 1000 // 24 hours
-    },
+    secret: process.env.SESSION_SECRET || 'your-secret-key',
     resave: false,
-    saveUninitialized: false
+    saveUninitialized: false,
+    store: MongoStore.create({
+        mongoUrl: process.env.MONGODB_URI,
+        ttl: 24 * 60 * 60
+    })
 }));
 
 // Add error handling for authentication
@@ -114,14 +115,24 @@ app.use((err, req, res, next) => {
 // Add environment check
 const isProduction = process.env.NODE_ENV === 'production';
 
-// Replace the bot startup section with this:
+// Add error handling for Telegram bot initialization
+const initTelegramBot = async () => {
+    try {
+        await startTelegramBot();
+    } catch (error) {
+        console.error('Failed to initialize Telegram bot:', error);
+        // Wait 5 seconds and try again
+        console.log('Retrying Telegram bot initialization in 5 seconds...');
+        setTimeout(initTelegramBot, 5000);
+    }
+};
+
+// Update the production check
 if (isProduction) {
-    // Only start bots in production
     startDiscordBot();
-    startTelegramBot();
+    initTelegramBot(); // Use the new initialization function
     console.log('Started bots in production mode');
 } else {
-    // In development, only start Discord bot if needed
     startDiscordBot();
     console.log('Development mode: Telegram bot disabled');
 }
@@ -154,4 +165,17 @@ app.get('/health', (req, res) => {
     } else {
         res.status(503).json({ status: 'unhealthy', db: 'disconnected' });
     }
-}); 
+});
+
+// Add error handling for Telegram bot initialization
+const startTelegramBot = async () => {
+    try {
+        await startBot();
+    } catch (error) {
+        if (error.response?.error_code === 409) {
+            console.log('Telegram bot instance already running elsewhere. Skipping initialization.');
+        } else {
+            console.error('Error starting Telegram bot:', error);
+        }
+    }
+}; 

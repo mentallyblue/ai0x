@@ -11,82 +11,49 @@ require('dotenv').config();
 router.post('/analyze', async (req, res) => {
     try {
         const { repoUrl } = req.body;
-        
         console.log('Received analyze request for URL:', repoUrl);
         
-        if (!repoUrl) {
-            return res.status(400).json({ error: 'Repository URL is required' });
+        // Clean and validate URL first
+        if (!repoUrl || typeof repoUrl !== 'string') {
+            throw new Error('Invalid repository URL provided');
         }
 
-        const repoInfo = parseGitHubUrl(repoUrl);
-        console.log('Parsed repo info:', repoInfo);
-        
+        const repoInfo = parseGitHubUrl(repoUrl.trim());
         if (!repoInfo || !repoInfo.owner || !repoInfo.repo) {
-            return res.status(400).json({ 
-                error: 'Invalid GitHub repository URL. Please use format: https://github.com/owner/repo' 
-            });
+            throw new Error('Invalid GitHub repository URL format');
         }
 
-        try {
-            // Verify the repository exists
-            await getRepoDetails(repoInfo);
-        } catch (error) {
-            return res.status(404).json({ 
-                error: error.message || 'Repository not found'
-            });
-        }
+        console.log('Parsed repo info:', repoInfo);
 
-        // Log the actual URL being used for the GitHub API request
-        console.log('Making GitHub API request for:', `https://api.github.com/repos/${repoInfo.owner}/${repoInfo.repo}`);
-
-        // Check for cached result first (24 hour cache)
+        // Check if we have a recent analysis
         const existingAnalysis = await Repository.findOne({
             owner: repoInfo.owner,
             repoName: repoInfo.repo,
-            lastAnalyzed: { 
-                $gt: new Date(Date.now() - 24 * 60 * 60 * 1000) 
-            }
-        }).lean();
+            lastAnalyzed: { $gt: new Date(Date.now() - 24 * 60 * 60 * 1000) }
+        });
 
         if (existingAnalysis) {
-            console.log('Returning cached analysis for:', repoUrl);
             return res.json({
                 success: true,
                 cached: true,
-                result: {
-                    repoDetails: {
-                        fullName: existingAnalysis.fullName,
-                        description: existingAnalysis.description,
-                        forks: existingAnalysis.forks,
-                        owner: existingAnalysis.owner,
-                        repoName: existingAnalysis.repoName,
-                        language: existingAnalysis.language,
-                        stars: existingAnalysis.stars
-                    },
-                    analysis: existingAnalysis.analysis
-                }
+                result: existingAnalysis
             });
         }
 
-        // If no cache, perform new analysis
-        console.log('Performing new analysis for:', repoUrl);
-        const analysis = await analyzeRepo(repoInfo); // Pass repoInfo instead of URL
+        // Perform new analysis
+        const result = await analyzeRepo(repoInfo);
         
-        return res.json({
+        res.json({
             success: true,
             cached: false,
-            result: {
-                repoDetails: analysis.repoDetails,
-                analysis: analysis.analysis
-            }
+            result
         });
 
     } catch (error) {
         console.error('Analysis request error:', error);
-        res.status(500).json({ 
+        res.status(400).json({
             success: false,
-            error: 'Failed to process analysis request',
-            details: error.message 
+            error: error.message
         });
     }
 });
