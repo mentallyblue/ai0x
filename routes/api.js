@@ -2,40 +2,62 @@ const express = require('express');
 const router = express.Router();
 const { parseGitHubUrl } = require('../utils/githubUtils');
 const Repository = require('../models/Repository');
-const { QueueService } = require('../services/queueService');
+const { analyzeRepo } = require('../services/analyzer');
 const { Anthropic } = require('@anthropic-ai/sdk');
 
 // Make sure this is at the top with other requires
 require('dotenv').config();
 
-// Initialize queue service
-const queueService = new QueueService();
-
-router.get('/recommendations/:owner/:repo', async (req, res) => {
+router.post('/analyze', async (req, res) => {
     try {
-        const { owner, repo } = req.params;
-        const currentRepo = await Repository.findOne({ owner, repoName: repo });
+        const { repoUrl } = req.body;
         
-        if (!currentRepo) {
-            return res.status(404).json({ error: 'Repository not found' });
+        if (!repoUrl) {
+            return res.status(400).json({ error: 'Repository URL is required' });
         }
 
-        // Find similar repos based on language and legitimacy score range
-        const similarRepos = await Repository.find({
-            _id: { $ne: currentRepo._id },
-            language: currentRepo.language,
-            'analysis.finalLegitimacyScore': {
-                $gte: (currentRepo.analysis?.finalLegitimacyScore || 0) - 10,
-                $lte: (currentRepo.analysis?.finalLegitimacyScore || 100) + 10
-            }
-        })
-        .sort({ stars: -1 })
-        .limit(5);
+        const repoInfo = parseGitHubUrl(repoUrl);
+        
+        if (!repoInfo) {
+            return res.status(400).json({ error: 'Invalid GitHub repository URL' });
+        }
 
-        res.json(similarRepos);
+        // Check for cached result first (24 hour cache)
+        const existingAnalysis = await Repository.findOne({
+            owner: repoInfo.owner,
+            repoName: repoInfo.repo,
+            lastAnalyzed: { 
+                $gt: new Date(Date.now() - 24 * 60 * 60 * 1000) 
+            }
+        });
+
+        if (existingAnalysis) {
+            console.log('Returning cached analysis for:', repoUrl);
+            return res.json({
+                cached: true,
+                result: {
+                    repoDetails: existingAnalysis,
+                    analysis: existingAnalysis.analysis
+                }
+            });
+        }
+
+        // If no cache, perform new analysis
+        console.log('Performing new analysis for:', repoUrl);
+        const analysis = await analyzeRepo(repoUrl);
+        
+        return res.json({
+            cached: false,
+            repoDetails: analysis.repoDetails,
+            analysis: analysis.analysis
+        });
+
     } catch (error) {
-        console.error('Recommendations error:', error);
-        res.status(500).json({ error: 'Failed to fetch recommendations' });
+        console.error('Analysis request error:', error);
+        res.status(500).json({ 
+            error: 'Failed to process analysis request',
+            details: error.message 
+        });
     }
 });
 
@@ -114,70 +136,6 @@ router.get('/recent', async (req, res) => {
     } catch (error) {
         console.error('Error fetching recent analyses:', error);
         res.status(500).json({ error: 'Failed to fetch recent analyses' });
-    }
-});
-
-// Update the analyze endpoint
-router.post('/analyze', async (req, res) => {
-    try {
-        const { repoUrl } = req.body;
-        
-        if (!repoUrl) {
-            return res.status(400).json({ error: 'Repository URL is required' });
-        }
-
-        const repoInfo = parseGitHubUrl(repoUrl);
-        
-        if (!repoInfo) {
-            return res.status(400).json({ error: 'Invalid GitHub repository URL' });
-        }
-
-        // Check for cached result first
-        const existingAnalysis = await Repository.findOne({
-            owner: repoInfo.owner,
-            repoName: repoInfo.repo,
-            lastAnalyzed: { 
-                $gt: new Date(Date.now() - 24 * 60 * 60 * 1000) 
-            }
-        });
-
-        if (existingAnalysis) {
-            console.log('Returning cached analysis for:', repoUrl);
-            return res.json({
-                cached: true,
-                result: {
-                    repoDetails: {
-                        fullName: `${repoInfo.owner}/${repoInfo.repo}`,
-                        ...existingAnalysis.toObject()
-                    },
-                    analysis: existingAnalysis.analysis
-                }
-            });
-        }
-
-        // Queue new analysis using the queue service
-        const jobId = await queueService.addToQueue(repoUrl);
-        console.log('Queued analysis job:', jobId, 'for:', repoUrl);
-        
-        return res.json({ jobId });
-
-    } catch (error) {
-        console.error('Analysis request error:', error);
-        res.status(500).json({ 
-            error: 'Failed to process analysis request',
-            details: error.message 
-        });
-    }
-});
-
-// Update queue position endpoint
-router.get('/queue-position/:jobId', async (req, res) => {
-    try {
-        const { jobId } = req.params;
-        const queueInfo = await queueService.getQueuePosition(jobId);
-        res.json(queueInfo);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
     }
 });
 
