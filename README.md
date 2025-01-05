@@ -253,9 +253,9 @@ POST /api/cleanup
 Join our growing community:
 
 - 𝕏 [@ai0xdotfun](https://x.com/ai0xdotfun) - Market updates & alerts
-- [Discord](https://discord.gg/sT4aCagN6v) - Technical discussions
-- [Telegram](https://t.me/ai0xportal) - Project updates
-- [Issues](https://github.com/ai0x/ai0x/issues) - Bug reports & features
+- [Discord](https://discord.gg/sT4aCagN6v) - Technical discussions & bug reports
+- [Telegram](https://t.me/ai0xportal) 
+
 
 ## Documentation
 
