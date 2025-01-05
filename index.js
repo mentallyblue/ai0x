@@ -111,11 +111,23 @@ app.use((err, req, res, next) => {
     next(err);
 });
 
-startDiscordBot();
-startTelegramBot();
+// Add environment check
+const isProduction = process.env.NODE_ENV === 'production';
+
+// Replace the bot startup section with this:
+if (isProduction) {
+    // Only start bots in production
+    startDiscordBot();
+    startTelegramBot();
+    console.log('Started bots in production mode');
+} else {
+    // In development, only start Discord bot if needed
+    startDiscordBot();
+    console.log('Development mode: Telegram bot disabled');
+}
 
 http.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log(`Server running on port ${PORT} in ${isProduction ? 'production' : 'development'} mode`);
 });
 
 // Add error handling for the HTTP server
