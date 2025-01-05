@@ -2,11 +2,14 @@ const express = require('express');
 const router = express.Router();
 const { parseGitHubUrl } = require('../utils/githubUtils');
 const Repository = require('../models/Repository');
-const { queueTracker, analysisQueue } = require('../services/queueService');
+const { QueueService } = require('../services/queueService');
 const { Anthropic } = require('@anthropic-ai/sdk');
 
 // Make sure this is at the top with other requires
 require('dotenv').config();
+
+// Initialize queue service
+const queueService = new QueueService();
 
 router.get('/recommendations/:owner/:repo', async (req, res) => {
     try {
@@ -152,8 +155,8 @@ router.post('/analyze', async (req, res) => {
             });
         }
 
-        // Queue new analysis
-        const jobId = await analysisQueue.add(repoUrl);
+        // Queue new analysis using the queue service
+        const jobId = await queueService.addToQueue(repoUrl);
         console.log('Queued analysis job:', jobId, 'for:', repoUrl);
         
         return res.json({ jobId });
@@ -167,11 +170,11 @@ router.post('/analyze', async (req, res) => {
     }
 });
 
-// Add new endpoint for queue position
+// Update queue position endpoint
 router.get('/queue-position/:jobId', async (req, res) => {
     try {
         const { jobId } = req.params;
-        const queueInfo = await queueTracker.getQueuePosition(jobId);
+        const queueInfo = await queueService.getQueuePosition(jobId);
         res.json(queueInfo);
     } catch (error) {
         res.status(500).json({ error: error.message });

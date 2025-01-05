@@ -1,42 +1,55 @@
 const { analyzeRepo } = require('./analyzer');
 
-const queueTracker = {
-    async addToQueue(repoFullName) {
-        // Directly analyze without queueing
-        const [owner, repo] = repoFullName.split('/');
-        const result = await analyzeRepo({ owner, repo });
-        
-        // Notify via WebSocket
-        global.io?.emit('analysisComplete', {
-            repo: repoFullName,
-            result: result
-        });
-
-        return result;
-    },
-
-    async getQueuePosition() {
-        // Always return completed since there's no queue
-        return {
-            position: 0,
-            total: 0,
-            status: 'completed'
-        };
-    },
-
-    getQueueStats() {
-        // Always return empty stats
-        return {
-            waiting: 0,
-            processing: 0,
-            total: 0
-        };
-    },
-
-    trackAnalysis() {
-        // No-op since we're not tracking anything
-        return true;
+class QueueService {
+    constructor() {
+        this.queue = new Map();
+        this.processing = new Set();
+        this.results = new Map();
+        this.lastJobId = 0;
     }
-};
 
-module.exports = { queueTracker }; 
+    async addToQueue(repoUrl) {
+        const jobId = ++this.lastJobId;
+        this.queue.set(jobId, {
+            repoUrl,
+            status: 'queued',
+            timestamp: Date.now()
+        });
+        
+        // Emit queue update via Socket.IO if available
+        if (global.io) {
+            global.io.emit('queueUpdate', {
+                size: this.queue.size,
+                processing: this.processing.size
+            });
+        }
+
+        return jobId;
+    }
+
+    async getQueuePosition(jobId) {
+        const job = this.queue.get(parseInt(jobId));
+        
+        if (!job) {
+            if (this.results.has(parseInt(jobId))) {
+                const result = this.results.get(parseInt(jobId));
+                return {
+                    status: 'completed',
+                    result
+                };
+            }
+            throw new Error('Job not found');
+        }
+
+        const position = Array.from(this.queue.keys()).indexOf(parseInt(jobId));
+        const total = this.queue.size;
+
+        return {
+            status: job.status,
+            position,
+            total
+        };
+    }
+}
+
+module.exports = { QueueService }; 
