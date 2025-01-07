@@ -5,26 +5,12 @@ const Repository = require('../models/Repository');
 const { analyzeRepo } = require('../services/analyzer');
 const { Anthropic } = require('@anthropic-ai/sdk');
 const { analyzeSite } = require('../services/siteAnalyzer');
-const FirecrawlApp = require('@mendable/firecrawl-js').default;
 const { Octokit } = require('@octokit/rest');
 
 // Make sure this is at the top with other requires
 require('dotenv').config();
 
-const firecrawl = new FirecrawlApp({apiKey: process.env.FIRECRAWL_API_KEY});
 const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
-
-// Test the API key
-(async () => {
-    try {
-        const testResult = await firecrawl.scrapeUrl('example.com', {
-            formats: ['markdown']
-        });
-        console.log('Firecrawl API key test successful');
-    } catch (error) {
-        console.error('Firecrawl API key test failed:', error);
-    }
-})();
 
 router.post('/analyze', async (req, res) => {
     try {

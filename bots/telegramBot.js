@@ -288,9 +288,16 @@ const startBot = async () => {
             return;
         }
 
+        console.log('Telegram token found, attempting to launch...');
+
         // Start the bot
         await bot.launch({
             dropPendingUpdates: true
+        });
+        
+        // Add a test message handler to verify the bot is working
+        bot.on('text', (ctx) => {
+            console.log('Received message:', ctx.message.text);
         });
         
         console.log('Telegram bot started successfully');
@@ -300,7 +307,7 @@ const startBot = async () => {
         process.once('SIGTERM', () => bot.stop('SIGTERM'));
 
     } catch (error) {
-        console.error('Error starting Telegram bot:', error);
+        console.error('Error starting Telegram bot:', error.stack);
         throw error;
     }
 };

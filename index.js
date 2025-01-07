@@ -107,18 +107,16 @@ app.get('/health', (req, res) => {
 // Initialize bots
 const initializeBots = async () => {
     try {
+        // Start Discord bot
         await startDiscordBot();
+        console.log('Discord bot started successfully');
         
-        // Only start Telegram bot in production
-        if (process.env.NODE_ENV !== 'development') {
-            try {
-                await startTelegramBot();
-                console.log('Telegram bot started successfully');
-            } catch (error) {
-                console.error('Failed to initialize Telegram bot:', error);
-            }
-        } else {
-            console.log('Skipping Telegram bot initialization in development mode');
+        // Start Telegram bot (remove development check)
+        try {
+            await startTelegramBot();
+            console.log('Telegram bot started successfully');
+        } catch (error) {
+            console.error('Failed to initialize Telegram bot:', error);
         }
 
         console.log('Bot initialization complete');
@@ -156,9 +154,5 @@ process.on('SIGTERM', () => {
 
 // This will start the tweet generation schedule
 const schedulerInstance = new Scheduler();
-
-// Start both bots
-startDiscordBot();
-startTelegramBot();
 
 startApp(); 
