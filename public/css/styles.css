@@ -2351,3 +2351,342 @@ section {
     font-size: 0.9rem;
     margin: 0;
 }
+
+/* Site Check specific styles */
+.site-check-container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.site-check-intro {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.site-check-intro h1 {
+    color: var(--accent);
+    font-size: 32px;
+    margin-bottom: 15px;
+}
+
+.site-input-wrapper {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 30px;
+}
+
+.site-input-wrapper input {
+    flex: 1;
+    padding: 15px;
+    font-size: 16px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-secondary);
+}
+
+.tech-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 15px;
+    margin: 20px 0;
+}
+
+.tech-item {
+    background: var(--bg-secondary);
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+}
+
+.security-score {
+    font-size: 48px;
+    font-weight: bold;
+    text-align: center;
+    margin: 20px 0;
+}
+
+.issue-item {
+    background: var(--bg-secondary);
+    padding: 15px;
+    border-radius: 8px;
+    margin: 10px 0;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.issue-severity {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.issue-item.critical .issue-severity { background: #ef4444; color: white; }
+.issue-item.high .issue-severity { background: #f97316; color: white; }
+.issue-item.medium .issue-severity { background: #eab308; color: black; }
+.issue-item.low .issue-severity { background: #22c55e; color: white; }
+
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 15px;
+    margin: 20px 0;
+}
+
+.metric-item {
+    background: var(--bg-secondary);
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.metric-label {
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+.metric-value {
+    font-size: 24px;
+    font-weight: bold;
+    color: var(--accent);
+}
+
+.analysis-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.score-overview {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 20px;
+    margin-bottom: 40px;
+}
+
+.score-card {
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+}
+
+.score-card.primary {
+    background: var(--accent-gradient);
+    color: white;
+}
+
+.score {
+    font-size: 48px;
+    font-weight: bold;
+    margin: 10px 0;
+}
+
+.score-breakdown {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 15px;
+}
+
+.analysis-details {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+}
+
+.detail-section {
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 20px;
+}
+
+.tech-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px;
+}
+
+.tech-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: var(--bg-secondary);
+    border-radius: 6px;
+}
+
+.security-features {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+}
+
+.feature-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    border-radius: 6px;
+    background: var(--bg-secondary);
+}
+
+.feature-item.active {
+    color: var(--success);
+}
+
+.feature-item.inactive {
+    color: var(--error);
+}
+
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+}
+
+.accessibility-score {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.score-indicator {
+    font-size: 24px;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: var(--bg-secondary);
+}
+
+/* Add these to your existing styles.css */
+.search-section {
+    margin: 2rem 0;
+}
+
+.search-box {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.search-input {
+    flex: 1;
+    padding: 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.search-button {
+    padding: 0.75rem 1.5rem;
+    background: var(--accent);
+    border: none;
+    border-radius: 6px;
+    color: var(--bg-primary);
+    cursor: pointer;
+    font-family: 'JetBrains Mono', monospace;
+    transition: opacity 0.2s;
+}
+
+.search-button:hover {
+    opacity: 0.9;
+}
+
+.filters {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.filter-select {
+    padding: 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.search-results {
+    display: grid;
+    gap: 1rem;
+}
+
+.repo-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+}
+
+.repo-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0.5rem;
+}
+
+.repo-name a {
+    color: var(--accent);
+    text-decoration: none;
+}
+
+.repo-stats {
+    display: flex;
+    gap: 1rem;
+    color: var(--text-secondary);
+}
+
+.repo-description {
+    color: var(--text-secondary);
+    margin-bottom: 1rem;
+}
+
+.repo-meta {
+    display: flex;
+    gap: 1rem;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.repo-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.pagination {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin: 2rem 0;
+}
+
+.pagination button {
+    padding: 0.5rem 1rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-primary);
+    cursor: pointer;
+}
+
+.pagination button:hover {
+    border-color: var(--accent);
+}
+
+.pagination span {
+    display: flex;
+    align-items: center;
+    color: var(--text-secondary);
+}

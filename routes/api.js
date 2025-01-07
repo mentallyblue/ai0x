@@ -4,9 +4,27 @@ const { parseGitHubUrl, getRepoDetails } = require('../utils/githubUtils');
 const Repository = require('../models/Repository');
 const { analyzeRepo } = require('../services/analyzer');
 const { Anthropic } = require('@anthropic-ai/sdk');
+const { analyzeSite } = require('../services/siteAnalyzer');
+const FirecrawlApp = require('@mendable/firecrawl-js').default;
+const { Octokit } = require('@octokit/rest');
 
 // Make sure this is at the top with other requires
 require('dotenv').config();
+
+const firecrawl = new FirecrawlApp({apiKey: process.env.FIRECRAWL_API_KEY});
+const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
+
+// Test the API key
+(async () => {
+    try {
+        const testResult = await firecrawl.scrapeUrl('example.com', {
+            formats: ['markdown']
+        });
+        console.log('Firecrawl API key test successful');
+    } catch (error) {
+        console.error('Firecrawl API key test failed:', error);
+    }
+})();
 
 router.post('/analyze', async (req, res) => {
     try {
@@ -198,6 +216,120 @@ Be conversational and show personality. Use emojis occasionally. Temperature is 
             error: 'Failed to generate insights',
             details: error.message 
         });
+    }
+});
+
+// Add site analysis endpoint
+router.post('/analyze-site', async (req, res) => {
+    try {
+        const { url } = req.body;
+        
+        if (!url) {
+            return res.status(400).json({ error: 'URL is required' });
+        }
+
+        let validUrl = url;
+        try {
+            if (!/^https?:\/\//i.test(url)) {
+                validUrl = 'https://' + url;
+            }
+            new URL(validUrl);
+        } catch (e) {
+            return res.status(400).json({ error: 'Invalid URL format' });
+        }
+
+        try {
+            console.log('Attempting to scrape URL:', validUrl);
+            
+            // Get basic site data
+            const scrapeResult = await firecrawl.scrapeUrl(validUrl, {
+                formats: ['markdown', 'html']
+            });
+
+            if (!scrapeResult.success) {
+                throw new Error(scrapeResult.error || 'Failed to analyze site');
+            }
+
+            // Analyze the scraped data
+            const analysis = await analyzeSiteContent(scrapeResult);
+
+            res.json({
+                success: true,
+                result: analysis
+            });
+
+        } catch (error) {
+            console.error('Firecrawl error:', error);
+            throw error;
+        }
+
+    } catch (error) {
+        console.error('Site analysis error:', error);
+        res.status(500).json({ 
+            error: error.message || 'Failed to analyze site'
+        });
+    }
+});
+
+// Add this middleware to log requests
+router.use('/analyze-site', (req, res, next) => {
+    console.log('Analyze site request:', {
+        url: req.body.url,
+        headers: req.headers,
+        body: req.body
+    });
+    next();
+});
+
+// Add this test endpoint
+router.get('/test-firecrawl', async (req, res) => {
+    try {
+        const testResult = await firecrawl.scrapeUrl('example.com', {
+            formats: ['markdown']
+        });
+        
+        console.log('Test result:', JSON.stringify(testResult, null, 2));
+        
+        res.json({
+            success: true,
+            result: testResult
+        });
+    } catch (error) {
+        console.error('Test failed:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+// Search repositories endpoint
+router.get('/search', async (req, res) => {
+    try {
+        const { q, language, sort, page = 1 } = req.query;
+        let query = q;
+        
+        // Add language filter if specified
+        if (language) {
+            query += ` language:${language}`;
+        }
+
+        // Perform GitHub search
+        const response = await octokit.search.repos({
+            q: query,
+            sort: sort || 'stars',
+            order: 'desc',
+            per_page: 10,
+            page: parseInt(page)
+        });
+
+        res.json({
+            total_count: response.data.total_count,
+            items: response.data.items
+        });
+    } catch (error) {
+        console.error('Search error:', error);
+        res.status(500).json({ error: 'Failed to search repositories' });
     }
 });
 

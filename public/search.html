@@ -3,377 +3,160 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI0x | Smart Repository Search</title>
+    <title>AI0x | Search Repositories</title>
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16.png">
-    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap">
     <link rel="stylesheet" href="/css/styles.css">
-    <script src="/js/main.js" defer></script>
+    <link rel="stylesheet" href="/css/header.css">
+    <script src="/js/header.js"></script>
+    <script src="/js/main.js"></script>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 </head>
 <body>
-    <header class="header">
-        <div class="header-content">
-            <a href="/" class="logo">
-                <img src="/images/image.jpg" alt="AI0x" class="logo-img">
-                <span class="logo-text">ai0x</span>
-            </a>
-            <nav class="nav-links">
-                <a href="/" class="nav-link">Analyze</a>
-                <a href="/search.html" class="nav-link active">Search</a>
-                <a href="/history.html" class="nav-link">History</a>
-                <a href="/insights.html" class="nav-link">Insights</a>
-                <div class="queue-status-header" id="queueStatusHeader">
-                    <span class="queue-count">Queue: 0</span>
-                </div>
-            </nav>
-        </div>
-    </header>
-
     <div class="container">
-        <div class="search-container">
-            <div class="search-intro">
-                <h1>Smart Repository Search</h1>
-                <p class="search-description">
-                    Search using natural language. Try queries like:
-                    <span class="example-queries">
-                        "machine learning repos with high scores"
-                        "React projects with good documentation"
-                        "trending AI repositories"
-                    </span>
-                </p>
+        <div class="search-section">
+            <h2>Search GitHub Repositories</h2>
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="Search repositories..." 
+                       class="search-input">
+                <button id="searchButton" class="search-button">Search</button>
             </div>
-
-            <div class="search-input-wrapper">
-                <input 
-                    type="text" 
-                    id="searchInput" 
-                    placeholder="Try 'Show me high quality Python AI projects'..."
-                    autocomplete="off"
-                >
-                <div class="search-icon">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                        <circle cx="11" cy="11" r="8"></circle>
-                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                    </svg>
-                </div>
-            </div>
-
-            <div class="search-filters">
-                <div class="filter-group">
+            <div class="filters">
                     <select id="languageFilter" class="filter-select">
                         <option value="">All Languages</option>
                     </select>
-                    <select id="scoreFilter" class="filter-select">
-                        <option value="">All Scores</option>
-                        <option value="90">90+ Exceptional</option>
-                        <option value="80">80+ Great</option>
-                        <option value="70">70+ Good</option>
-                    </select>
-                    <select id="sortBy" class="filter-select">
-                        <option value="score">Sort by Score</option>
-                        <option value="recent">Most Recent</option>
+                <select id="sortFilter" class="filter-select">
                         <option value="stars">Most Stars</option>
+                    <option value="forks">Most Forks</option>
+                    <option value="updated">Recently Updated</option>
                     </select>
-                </div>
-                <div class="active-filters" id="activeFilters"></div>
-            </div>
-
-            <div id="loadingState" class="loading-state">
-                <div class="loading-animation">
-                    <div class="loading-spinner"></div>
-                    <p>Loading repositories...</p>
-                </div>
-            </div>
-
-            <div id="searchStats" class="search-stats" style="display: none;"></div>
-            <div id="searchResults" class="search-results" style="display: none;"></div>
-            <div id="noResults" class="no-results" style="display: none;">
-                <div class="no-results-content">
-                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                        <circle cx="11" cy="11" r="8"></circle>
-                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                    </svg>
-                    <h3>No matches found</h3>
-                    <p>Try adjusting your search terms or filters</p>
-                </div>
             </div>
         </div>
+        <div id="searchResults" class="search-results"></div>
+        <div id="pagination" class="pagination"></div>
     </div>
 
     <script>
-        let debounceTimeout;
-        let allRepositories = [];
-        let currentQuery = '';
-        
-        document.addEventListener('DOMContentLoaded', async () => {
-            try {
-                window.socket = io();
-                
-                socket.on('queueUpdate', (data) => {
-                    const queueCount = document.querySelector('#queueStatusHeader .queue-count');
-                    if (queueCount) {
-                        queueCount.textContent = `Queue: ${data.queueLength}`;
-                    }
-                });
+        let currentPage = 1;
+        const perPage = 10;
 
-                await initializeSearch();
-                setupEventListeners();
-            } catch (error) {
-                console.error('Initialization error:', error);
-            }
-        });
-
-        async function initializeSearch() {
-            try {
-                document.getElementById('loadingState').style.display = 'block';
-                document.getElementById('searchStats').style.display = 'none';
-                document.getElementById('searchResults').style.display = 'none';
-                document.getElementById('noResults').style.display = 'none';
-
-                const response = await fetch('/api/analyses');
-                allRepositories = await response.json();
-                
-                populateLanguageFilter();
-                
-                document.getElementById('loadingState').style.display = 'none';
-                document.getElementById('searchStats').style.display = 'block';
-                document.getElementById('searchResults').style.display = 'block';
-                
-                showSearchStats();
-            } catch (error) {
-                console.error('Error initializing search:', error);
-                document.getElementById('loadingState').style.display = 'none';
-                document.getElementById('noResults').style.display = 'block';
-                document.getElementById('noResults').querySelector('h3').textContent = 'Error loading repositories';
-                document.getElementById('noResults').querySelector('p').textContent = 'Please try refreshing the page';
-            }
-        }
-
-        function setupEventListeners() {
-            const searchInput = document.getElementById('searchInput');
-            const filters = document.querySelectorAll('.filter-select');
+        async function searchRepositories() {
+            const searchTerm = document.getElementById('searchInput').value;
+            const language = document.getElementById('languageFilter').value;
+            const sort = document.getElementById('sortFilter').value;
             
-            searchInput.addEventListener('input', handleSearch);
-            filters.forEach(filter => {
-                filter.addEventListener('change', () => {
-                    handleSearch();
-                    updateActiveFilters();
-                });
-            });
+            if (!searchTerm) return;
 
-            // Add keyboard navigation
-            searchInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    handleSearch(true); // Immediate search
+            const resultsDiv = document.getElementById('searchResults');
+            resultsDiv.innerHTML = '<div class="loading">Searching repositories...</div>';
+
+            try {
+                const response = await fetch(`/api/search?q=${encodeURIComponent(searchTerm)}&language=${language}&sort=${sort}&page=${currentPage}`);
+                const data = await response.json();
+
+                if (response.ok) {
+                    displayResults(data);
+                } else {
+                    resultsDiv.innerHTML = `<div class="error">${data.error || 'Search failed'}</div>`;
                 }
-            });
-        }
-
-        function populateLanguageFilter() {
-            const languages = new Set(allRepositories
-                .map(repo => repo.language)
-                .filter(Boolean));
-            
-            const languageFilter = document.getElementById('languageFilter');
-            languages.forEach(language => {
-                const option = document.createElement('option');
-                option.value = language;
-                option.textContent = language;
-                languageFilter.appendChild(option);
-            });
-        }
-
-        function handleSearch(immediate = false) {
-            clearTimeout(debounceTimeout);
-            const delay = immediate ? 0 : 300;
-            debounceTimeout = setTimeout(performSearch, delay);
-        }
-
-        async function performSearch() {
-            const searchInput = document.getElementById('searchInput');
-            const query = searchInput.value.toLowerCase();
-            currentQuery = query;
-
-            const filters = getActiveFilters();
-            const results = await searchRepositories(query, filters);
-            displayResults(results);
-        }
-
-        async function searchRepositories(query, filters) {
-            // Natural language processing of the query
-            const queryTerms = processNaturalLanguageQuery(query);
-            
-            let results = allRepositories.filter(repo => {
-                if (!matchesFilters(repo, filters)) return false;
-                
-                return matchesNaturalLanguageQuery(repo, queryTerms);
-            });
-
-            // Apply sorting
-            results = sortResults(results, filters.sortBy);
-            return results;
-        }
-
-        function processNaturalLanguageQuery(query) {
-            // Extract meaningful terms and intentions from the query
-            const terms = {
-                quality: query.includes('high quality') || query.includes('good') || query.includes('best'),
-                trending: query.includes('trending') || query.includes('popular'),
-                ai: query.includes('ai') || query.includes('machine learning') || query.includes('artificial intelligence'),
-                documentation: query.includes('documented') || query.includes('documentation'),
-                keywords: query.toLowerCase().split(' ').filter(word => word.length > 2)
-            };
-            return terms;
-        }
-
-        function matchesNaturalLanguageQuery(repo, queryTerms) {
-            if (!queryTerms.keywords.length) return true;
-
-            const searchableText = `
-                ${repo.fullName.toLowerCase()} 
-                ${repo.description ? repo.description.toLowerCase() : ''}
-                ${repo.language ? repo.language.toLowerCase() : ''}
-            `;
-
-            // Match quality indicators
-            if (queryTerms.quality && repo.analysis?.finalLegitimacyScore < 80) return false;
-            if (queryTerms.trending && repo.stars < 100) return false;
-            if (queryTerms.documentation && repo.analysis?.detailedScores?.documentation < 70) return false;
-
-            // Match keywords
-            return queryTerms.keywords.some(term => searchableText.includes(term));
-        }
-
-        function getActiveFilters() {
-            return {
-                language: document.getElementById('languageFilter').value,
-                minScore: document.getElementById('scoreFilter').value,
-                sortBy: document.getElementById('sortBy').value
-            };
-        }
-
-        function matchesFilters(repo, filters) {
-            if (filters.language && repo.language !== filters.language) return false;
-            if (filters.minScore && repo.analysis?.finalLegitimacyScore < parseInt(filters.minScore)) return false;
-            return true;
-        }
-
-        function sortResults(results, sortBy) {
-            switch (sortBy) {
-                case 'recent':
-                    return results.sort((a, b) => new Date(b.lastAnalyzed) - new Date(a.lastAnalyzed));
-                case 'stars':
-                    return results.sort((a, b) => (b.stars || 0) - (a.stars || 0));
-                default: // 'score'
-                    return results.sort((a, b) => 
-                        (b.analysis?.finalLegitimacyScore || 0) - (a.analysis?.finalLegitimacyScore || 0)
-                    );
+            } catch (error) {
+                console.error('Search failed:', error);
+                resultsDiv.innerHTML = '<div class="error">Search failed. Please try again.</div>';
             }
         }
 
-        function displayResults(results) {
-            const searchResults = document.getElementById('searchResults');
-            const noResults = document.getElementById('noResults');
+        function displayResults(data) {
+            const resultsDiv = document.getElementById('searchResults');
             
-            searchResults.style.display = 'block';
-            
-            if (!results.length) {
-                searchResults.innerHTML = '';
-                searchResults.style.display = 'none';
-                noResults.style.display = 'block';
+            if (!data.items?.length) {
+                resultsDiv.innerHTML = '<div class="no-results">No repositories found</div>';
                 return;
             }
 
-            noResults.style.display = 'none';
-            searchResults.innerHTML = results.map(repo => `
-                <div class="repo-card" onclick="window.location.href='/analysis.html?repo=${repo.fullName}'">
+            resultsDiv.innerHTML = data.items.map(repo => `
+                <div class="repo-card">
                     <div class="repo-header">
-                        <h3>${repo.fullName}</h3>
-                        <div class="score-badge ${getScoreClass(repo.analysis?.finalLegitimacyScore)}">
-                            ${Math.round(repo.analysis?.finalLegitimacyScore || 0)}
+                        <h3 class="repo-name">
+                            <a href="/analysis.html?repo=${repo.full_name}">${repo.full_name}</a>
+                        </h3>
+                        <div class="repo-stats">
+                            <span title="Stars">⭐ ${repo.stargazers_count}</span>
+                            <span title="Forks">🔄 ${repo.forks_count}</span>
                         </div>
                     </div>
                     <p class="repo-description">${repo.description || 'No description available'}</p>
                     <div class="repo-meta">
-                        ${repo.language ? `
-                            <span class="language">
-                                <span class="lang-color" style="background-color: ${getLanguageColor(repo.language)}"></span>
-                                ${repo.language}
-                            </span>
-                        ` : ''}
-                        <span class="stars">⭐ ${repo.stars || 0}</span>
-                        <span class="analysis-time">Analyzed ${formatDate(repo.lastAnalyzed)}</span>
+                        ${repo.language ? `<span class="language">${repo.language}</span>` : ''}
+                        <span class="updated">Updated: ${new Date(repo.updated_at).toLocaleDateString()}</span>
                     </div>
-                    ${getScoreBadges(repo.analysis?.detailedScores)}
+                    <div class="repo-actions">
+                        <a href="${repo.html_url}" target="_blank" class="repo-link">View on GitHub</a>
+                        <button onclick="analyzeRepository('${repo.full_name}')" class="analyze-button">
+                            Analyze
+                        </button>
+                    </div>
                 </div>
             `).join('');
 
-            showSearchStats(results.length);
+            updatePagination(data.total_count);
         }
 
-        function getScoreBadges(scores) {
-            if (!scores) return '';
+        function updatePagination(totalCount) {
+            const totalPages = Math.min(Math.ceil(totalCount / perPage), 100); // GitHub API limit
+            const pagination = document.getElementById('pagination');
             
-            return `
-                <div class="score-badges">
-                    ${Object.entries(scores).map(([key, value]) => `
-                        <div class="mini-score" title="${formatScoreLabel(key)}: ${Math.round(value)}">
-                            <span class="mini-score-label">${formatScoreLabel(key)}</span>
-                            <span class="mini-score-value ${getScoreClass(value)}">${Math.round(value)}</span>
-                        </div>
-                    `).join('')}
-                </div>
-            `;
-        }
-
-        function formatScoreLabel(key) {
-            return key.split(/(?=[A-Z])/).join(' ');
-        }
-
-        function showSearchStats(count) {
-            const stats = document.getElementById('searchStats');
-            stats.style.display = 'block';
-            
-            if (currentQuery) {
-                stats.textContent = `Found ${count} repositories`;
-            } else {
-                stats.textContent = `${allRepositories.length} repositories analyzed`;
+            let html = '';
+            if (currentPage > 1) {
+                html += `<button onclick="changePage(${currentPage - 1})">Previous</button>`;
             }
-        }
-
-        function getLanguageColor(language) {
-            const colors = {
-                JavaScript: '#f1e05a',
-                Python: '#3572A5',
-                Java: '#b07219',
-                TypeScript: '#2b7489',
-                // Add more language colors as needed
-            };
-            return colors[language] || '#8b8b8b';
-        }
-
-        function formatDate(date) {
-            return new Date(date).toLocaleDateString('en-US', {
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric'
-            });
-        }
-
-        function updateActiveFilters() {
-            const activeFilters = document.getElementById('activeFilters');
-            const filters = getActiveFilters();
             
-            const activeFilterTags = [];
-            if (filters.language) activeFilterTags.push(`Language: ${filters.language}`);
-            if (filters.minScore) activeFilterTags.push(`Min Score: ${filters.minScore}+`);
+            // Show current page and total pages
+            html += `<span>Page ${currentPage} of ${totalPages}</span>`;
             
-            activeFilters.innerHTML = activeFilterTags.map(filter => `
-                <span class="filter-tag">${filter}</span>
-            `).join('');
+            if (currentPage < totalPages) {
+                html += `<button onclick="changePage(${currentPage + 1})">Next</button>`;
+            }
+            
+            pagination.innerHTML = html;
         }
+
+        function changePage(page) {
+            currentPage = page;
+            searchRepositories();
+        }
+
+        async function analyzeRepository(repoFullName) {
+            window.location.href = `/analysis.html?repo=${repoFullName}`;
+        }
+
+        // Event listeners
+        document.getElementById('searchButton').addEventListener('click', () => {
+            currentPage = 1;
+            searchRepositories();
+        });
+
+        document.getElementById('searchInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                currentPage = 1;
+                searchRepositories();
+            }
+        });
+
+        // Load common languages for the filter
+        const commonLanguages = [
+            'JavaScript', 'Python', 'Java', 'TypeScript', 'C++', 'C#', 'PHP', 
+            'Ruby', 'Go', 'Rust', 'Solidity'
+        ];
+        
+        const languageFilter = document.getElementById('languageFilter');
+        commonLanguages.forEach(lang => {
+            const option = document.createElement('option');
+            option.value = lang;
+            option.textContent = lang;
+            languageFilter.appendChild(option);
+        });
     </script>
 </body>
 </html> 

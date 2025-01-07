@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI0x | Site Check</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap">
+    <link rel="stylesheet" href="/css/styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="/js/sitecheck.js" defer></script>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <a href="/" class="logo">
+                <img src="/images/image.jpg" alt="AI0x" class="logo-img">
+                <span class="logo-text">ai0x</span>
+            </a>
+            <nav class="nav-links">
+                <a href="/" class="nav-link">Analyze</a>
+                <a href="/search.html" class="nav-link">Search</a>
+                <a href="/sitecheck.html" class="nav-link active">Site Check</a>
+                <a href="/history.html" class="nav-link">History</a>
+                <a href="/insights.html" class="nav-link">Insights</a>
+                <div class="queue-status-header" id="queueStatusHeader">
+                    <span class="queue-count">Queue: 0</span>
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="site-check-container">
+            <div class="site-check-intro">
+                <h1>Website Security & Tech Analysis</h1>
+                <p class="site-check-description">
+                    Analyze any website for security vulnerabilities, technology stack, and performance metrics.
+                </p>
+            </div>
+
+            <div class="site-input-wrapper">
+                <input 
+                    type="text" 
+                    id="siteUrl" 
+                    placeholder="Enter website URL (e.g., https://example.com)"
+                    autocomplete="off"
+                >
+                <button id="analyzeButton" class="analyze-button">
+                    Analyze Site
+                </button>
+            </div>
+
+            <div id="analysisResult" class="analysis-result">
+                <!-- Results will be displayed here -->
+            </div>
+
+            <div class="recent-checks">
+                <h2>Recent Site Checks</h2>
+                <div id="recentChecks" class="recent-grid">
+                    <!-- Recent checks will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html> 

@@ -11,3 +11,18 @@ global.io = io;
 server.listen(port, () => {
     console.log(`Server running on port ${port}`);
 }); 
+
+io.on('connection', (socket) => {
+    // Send initial queue status
+    socket.emit('queueUpdate', { count: getQueueCount() });
+
+    // Handle analysis requests
+    socket.on('analyzeRepository', async (data) => {
+        // Your existing analysis logic
+    });
+});
+
+// Update queue status whenever it changes
+function updateQueueStatus() {
+    io.emit('queueUpdate', { count: getQueueCount() });
+} 
