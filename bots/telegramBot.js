@@ -1,5 +1,6 @@
 const { Telegraf } = require('telegraf');
 const Repository = require('../models/Repository');
+const { queueTracker } = require('../services/queueService');
 
 // Rate limiting setup
 const cooldowns = new Map();
@@ -280,9 +281,10 @@ bot.catch((err, ctx) => {
 
 const startBot = async () => {
     try {
-        // Only start bot if not in development
-        if (process.env.NODE_ENV === 'development') {
-            console.log('Skipping Telegram bot in development mode');
+        console.log('Starting Telegram bot...');
+        
+        if (!process.env.TELEGRAM_BOT_TOKEN) {
+            console.error('TELEGRAM_BOT_TOKEN is not set!');
             return;
         }
 
@@ -294,14 +296,8 @@ const startBot = async () => {
         console.log('Telegram bot started successfully');
 
         // Enable graceful shutdown
-        process.once('SIGINT', () => {
-            console.log('Stopping Telegram bot (SIGINT)');
-            bot.stop('SIGINT');
-        });
-        process.once('SIGTERM', () => {
-            console.log('Stopping Telegram bot (SIGTERM)');
-            bot.stop('SIGTERM');
-        });
+        process.once('SIGINT', () => bot.stop('SIGINT'));
+        process.once('SIGTERM', () => bot.stop('SIGTERM'));
 
     } catch (error) {
         console.error('Error starting Telegram bot:', error);

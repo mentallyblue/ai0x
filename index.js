@@ -157,4 +157,8 @@ process.on('SIGTERM', () => {
 // This will start the tweet generation schedule
 const schedulerInstance = new Scheduler();
 
+// Start both bots
+startDiscordBot();
+startTelegramBot();
+
 startApp(); 
