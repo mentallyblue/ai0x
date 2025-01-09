@@ -3,12 +3,21 @@ const { analyzeRepository } = require('../services/analyzer');
 
 class DiscordBot {
     constructor() {
+        this.reconnectAttempts = 0;
+        this.maxReconnectAttempts = 5;
+        this.activeAnalyses = new Map();
+        
         this.client = new Client({
             intents: [
                 GatewayIntentBits.Guilds,
                 GatewayIntentBits.GuildMessages,
                 GatewayIntentBits.MessageContent
-            ]
+            ],
+            failIfNotExists: false,
+            retryLimit: 5,
+            presence: {
+                activities: [{ name: '!repo for analysis' }]
+            }
         });
         
         this.setupEventHandlers();
@@ -35,15 +44,7 @@ class DiscordBot {
                         return;
                     }
 
-                    const statusMsg = await message.reply('🔍 Starting analysis...');
-                    
-                    try {
-                        const result = await analyzeRepository(repoUrl);
-                        await this.sendAnalysisResult(message.channel, result, statusMsg);
-                    } catch (error) {
-                        console.error('Analysis error:', error);
-                        await statusMsg.edit(`❌ Analysis failed: ${error.message || 'Unknown error'}`);
-                    }
+                    await this.handleAnalysis(message, repoUrl);
                 }
             } catch (error) {
                 console.error('Message handling error:', error);
@@ -72,6 +73,28 @@ class DiscordBot {
         if (repoMatch) return `https://github.com/${repoMatch[0]}`;
 
         return null;
+    }
+
+    async handleAnalysis(message, repoUrl) {
+        const analysisKey = `${message.guild.id}-${message.channel.id}`;
+        
+        if (this.activeAnalyses.has(analysisKey)) {
+            await message.reply('⏳ Analysis already in progress for this channel. Please wait...');
+            return;
+        }
+
+        this.activeAnalyses.set(analysisKey, true);
+        const statusMsg = await message.reply('🔍 Starting analysis...');
+
+        try {
+            const result = await analyzeRepository(repoUrl);
+            await this.sendAnalysisResult(message.channel, result, statusMsg);
+        } catch (error) {
+            console.error('Analysis error:', error);
+            await statusMsg.edit(`❌ Analysis failed: ${error.message || 'Unknown error'}`);
+        } finally {
+            this.activeAnalyses.delete(analysisKey);
+        }
     }
 
     async sendAnalysisResult(channel, result, statusMsg) {
@@ -134,6 +157,15 @@ class DiscordBot {
                 console.error('Discord login failed:', error);
                 this.reconnect();
             });
+    }
+
+    setupHealthCheck() {
+        setInterval(() => {
+            if (!this.client.ws.shards.size) {
+                console.log('No active shards, attempting reconnect...');
+                this.reconnect();
+            }
+        }, 30000);
     }
 }
 
