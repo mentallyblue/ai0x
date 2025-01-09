@@ -276,9 +276,46 @@
                     </div>
                 </div>`;
 
+            const copyDetectionSection = data.analysis?.copyDetection ? `
+                <div class="copy-detection-section">
+                    <h3>Copy Detection Results</h3>
+                    <div class="risk-level" data-risk="${data.analysis.copyDetection.riskLevel}">
+                        Risk Level: ${data.analysis.copyDetection.riskLevel.toUpperCase()}
+                    </div>
+                    
+                    ${data.analysis.copyDetection.flags.length > 0 ? `
+                        <div class="detection-flags">
+                            <h4>⚠️ Potential Issues Found:</h4>
+                            <ul>
+                                ${data.analysis.copyDetection.flags.map(flag => `
+                                    <li>${flag}</li>
+                                `).join('')}
+                            </ul>
+                        </div>
+                    ` : ''}
+                    
+                    ${data.analysis.copyDetection.similarRepos.length > 0 ? `
+                        <div class="similar-repos">
+                            <h4>🔍 Similar Older Repositories:</h4>
+                            <ul>
+                                ${data.analysis.copyDetection.similarRepos.map(repo => `
+                                    <li>
+                                        <a href="https://github.com/${repo.name}" target="_blank" rel="noopener noreferrer">
+                                            ${repo.name}
+                                        </a>
+                                        <span>⭐ ${repo.stars} • Created ${new Date(repo.created).toLocaleDateString()}</span>
+                                    </li>
+                                `).join('')}
+                            </ul>
+                        </div>
+                    ` : ''}
+                </div>
+            ` : '';
+
             container.innerHTML = `
                 ${repoHeader}
                 ${projectStatus}
+                ${copyDetectionSection}
                 <div class="scores-container">
                     <div class="main-scores">
                         <div class="score-item primary" 
@@ -732,6 +769,51 @@
                 }
             });
         });
+
+        // Add to your displayAnalysis function
+        function displayCopyDetection(data) {
+            if (!data.analysis?.copyDetection) return '';
+
+            const { riskLevel, flags, similarRepos } = data.analysis.copyDetection;
+            const riskColors = {
+                low: '#22c55e',
+                medium: '#eab308',
+                high: '#ef4444',
+                unknown: '#94a3b8'
+            };
+
+            return `
+                <div class="copy-detection-section">
+                    <h3>Copy Detection</h3>
+                    <div class="risk-level" style="color: ${riskColors[riskLevel]}">
+                        Risk Level: ${riskLevel.toUpperCase()}
+                    </div>
+                    ${flags.length > 0 ? `
+                        <div class="detection-flags">
+                            <h4>Potential Issues:</h4>
+                            <ul>
+                                ${flags.map(flag => `<li>${flag}</li>`).join('')}
+                            </ul>
+                        </div>
+                    ` : ''}
+                    ${similarRepos.length > 0 ? `
+                        <div class="similar-repos">
+                            <h4>Similar Repositories:</h4>
+                            <ul>
+                                ${similarRepos.map(repo => `
+                                    <li>
+                                        <a href="https://github.com/${repo.name}" target="_blank">
+                                            ${repo.name}
+                                        </a>
+                                        (⭐${repo.stars}, Created: ${new Date(repo.created).toLocaleDateString()})
+                                    </li>
+                                `).join('')}
+                            </ul>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
     </script>
 </body>
 </html> 

@@ -1,4 +1,5 @@
 const Redis = require('ioredis');
+const { checkRepositorySimilarity } = require('../utils/repoChecker');
 
 const REDIS_URL = process.env.NODE_ENV === 'production' 
     ? process.env.REDIS_URL_PROD
@@ -93,6 +94,22 @@ router.get('/stats', async (req, res) => {
 router.post('/analyze', async (req, res) => {
     try {
         // ... existing analysis code ...
+
+        // Add similarity check
+        const similarityCheck = await checkRepositorySimilarity(repoFullName);
+        
+        // Add to analysis result
+        analysis.copyDetection = {
+            riskLevel: similarityCheck.riskLevel,
+            flags: similarityCheck.flags,
+            similarRepos: similarityCheck.similarRepos
+        };
+
+        // Update legitimacy score if high risk
+        if (similarityCheck.riskLevel === 'high') {
+            analysis.legitimacyScore = Math.max(0, analysis.legitimacyScore - 30);
+            analysis.trustScore = Math.max(0, analysis.trustScore - 40);
+        }
 
         // After successful analysis, invalidate caches
         await Promise.all([

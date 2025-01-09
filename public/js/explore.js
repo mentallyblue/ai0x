@@ -55,4 +55,39 @@ function updateStats(data) {
     
     document.getElementById('topLanguage').textContent = 
         topLanguage ? topLanguage[0] : 'N/A';
+}
+
+function showMobileAnalysis(repoFullName) {
+    if (window.innerWidth <= 768) {
+        const container = document.querySelector('.container');
+        container.classList.add('mobile-fullscreen');
+        
+        // Add back button
+        const backButton = document.createElement('button');
+        backButton.className = 'back-button';
+        backButton.innerHTML = `
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+            Close
+        `;
+        
+        backButton.addEventListener('click', () => {
+            container.classList.remove('mobile-fullscreen');
+            backButton.remove();
+            // Clear the analysis and show the repository list
+            document.getElementById('result').innerHTML = '';
+            loadRepositories();
+        });
+        
+        document.body.appendChild(backButton);
+    }
+}
+
+// Update the repository click handler
+function handleRepositoryClick(repoFullName) {
+    showMobileAnalysis(repoFullName);
+    loadAnalysis(repoFullName);
+    // Update URL without page reload
+    history.pushState({}, '', `/analysis.html?repo=${repoFullName}`);
 } 

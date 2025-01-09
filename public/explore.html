@@ -250,7 +250,7 @@
             pageRepositories.forEach(repo => {
                 const card = document.createElement('div');
                 card.className = 'repository-card';
-                card.onclick = () => window.location.href = `/analysis.html?repo=${repo.fullName}`;
+                card.onclick = () => handleRepositoryClick(repo.fullName);
                 
                 card.innerHTML = `
                     <div class="repo-header">
@@ -377,6 +377,13 @@
                 showError(error.message);
             }
         });
+
+        function handleRepositoryClick(repoFullName) {
+            showMobileAnalysis(repoFullName);
+            loadAnalysis(repoFullName);
+            // Update URL without page reload
+            history.pushState({}, '', `/analysis.html?repo=${repoFullName}`);
+        }
     </script>
 </body>
 </html> 
