@@ -240,46 +240,25 @@
 
         // Display repositories
         function displayRepositories(repositories) {
-            const start = (currentPage - 1) * PAGE_SIZE;
-            const end = start + PAGE_SIZE;
-            const pageRepositories = repositories.slice(start, end);
-
-            // Create document fragment for better performance
-            const fragment = document.createDocumentFragment();
-            
-            pageRepositories.forEach(repo => {
-                const card = document.createElement('div');
-                card.className = 'repository-card';
-                card.onclick = () => handleRepositoryClick(repo.fullName);
-                
-                card.innerHTML = `
+            const grid = document.getElementById('repositoriesGrid');
+            grid.innerHTML = repositories.map(repo => `
+                <div class="repository-card" onclick="window.location.href = '/analysis.html?repo=${repo.fullName}'">
                     <div class="repo-header">
-                        <div class="repo-name">${repo.fullName}</div>
+                        <h3>${repo.fullName}</h3>
                         <div class="repo-stats">
                             <span>⭐ ${repo.stars || 0}</span>
                             <span>🔄 ${repo.forks || 0}</span>
                         </div>
                     </div>
-                    <div class="repo-description">${repo.description || 'No description available'}</div>
-                    <div class="score-badge ${getScoreClass(repo.analysis?.finalLegitimacyScore)}">
-                        Score: ${repo.analysis?.finalLegitimacyScore || 0}/100
-                    </div>
                     <div class="repo-meta">
-                        <div class="meta-left">
-                            <span>${repo.language || 'Unknown'}</span>
-                        </div>
-                        <div class="meta-right">
-                            Analyzed: ${new Date(repo.lastAnalyzed).toLocaleDateString()}
-                        </div>
+                        <span class="language">${repo.language || 'Unknown'}</span>
+                        <span class="score">Score: ${repo.analysis?.legitimacyScore || 0}/100</span>
                     </div>
-                `;
-                
-                fragment.appendChild(card);
-            });
-
-            const grid = document.getElementById('repositoriesGrid');
-            grid.innerHTML = '';
-            grid.appendChild(fragment);
+                    <div class="repo-description">
+                        ${repo.description || 'No description available'}
+                    </div>
+                </div>
+            `).join('');
 
             updatePagination(repositories.length);
         }

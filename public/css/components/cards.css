@@ -158,4 +158,28 @@
     color: var(--accent);
     font-size: 0.875rem;
     font-weight: 500;
+}
+
+.repository-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.repository-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    border-color: var(--accent);
+}
+
+.repository-card:active {
+    transform: translateY(0);
+}
+
+/* Make sure the entire card is clickable */
+.repository-card * {
+    pointer-events: none;
 } 
