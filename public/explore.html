@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI0x | Explore Repositories</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16.png">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap">
+    <link rel="stylesheet" href="/css/components/header.css">
+    <link rel="stylesheet" href="/css/explore.css">
+    <script src="/js/header.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Stats Overview -->
+        <div class="stats-bar">
+            <div class="stat-item">
+                <div class="stat-value" id="totalAnalyses">0</div>
+                <div class="stat-label">Total Analyses</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="avgScore">0</div>
+                <div class="stat-label">Average Score</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="topLanguage">-</div>
+                <div class="stat-label">Most Common Language</div>
+            </div>
+        </div>
+
+        <!-- Search and Filters -->
+        <div class="explore-controls">
+            <div class="search-box">
+                <input type="text" 
+                       id="searchInput" 
+                       placeholder="Search repositories or enter GitHub URL..."
+                       class="search-input">
+            </div>
+            
+            <div class="filters">
+                <div class="filter-group">
+                    <select id="sortSelect" class="filter-select">
+                        <option value="date">Most Recent</option>
+                        <option value="score">Highest Score</option>
+                        <option value="stars">Most Stars</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <select id="languageSelect" class="filter-select">
+                        <option value="all">All Languages</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <select id="scoreSelect" class="filter-select">
+                        <option value="all">All Scores</option>
+                        <option value="80-100">Exceptional (80-100)</option>
+                        <option value="60-79">Good (60-79)</option>
+                        <option value="40-59">Fair (40-59)</option>
+                        <option value="0-39">Needs Work (0-39)</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Grid -->
+        <div class="repositories-grid" id="repositoriesGrid"></div>
+
+        <!-- Pagination -->
+        <div class="pagination" id="pagination"></div>
+    </div>
+
+    <script>
+        let allRepositories = [];
+        let currentPage = 1;
+        const PAGE_SIZE = 12;
+
+        // Add these cache functions
+        const CACHE_KEY = 'ai0x_explore_cache';
+        const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+        function getCache() {
+            try {
+                const cached = localStorage.getItem(CACHE_KEY);
+                if (cached) {
+                    const { timestamp, data } = JSON.parse(cached);
+                    if (Date.now() - timestamp < CACHE_DURATION) {
+                        return data;
+                    }
+                }
+            } catch (error) {
+                console.error('Cache read error:', error);
+            }
+            return null;
+        }
+
+        function setCache(data) {
+            try {
+                localStorage.setItem(CACHE_KEY, JSON.stringify({
+                    timestamp: Date.now(),
+                    data
+                }));
+            } catch (error) {
+                console.error('Cache write error:', error);
+            }
+        }
+
+        // Helper function to get score class
+        function getScoreClass(score) {
+            if (score >= 80) return 'score-exceptional';
+            if (score >= 60) return 'score-good';
+            if (score >= 40) return 'score-fair';
+            return 'score-needs-work';
+        }
+
+        // Load and display repositories
+        async function loadRepositories() {
+            // Show loading state immediately
+            document.getElementById('repositoriesGrid').innerHTML = `
+                <div class="loading">Loading repositories...</div>
+            `;
+
+            // Try to load from cache first
+            const cachedData = getCache();
+            if (cachedData) {
+                console.log('Loading from cache');
+                allRepositories = cachedData;
+                updateStats();
+                populateLanguageFilter();
+                applyFilters();
+            }
+
+            try {
+                // Fetch fresh data in background
+                const response = await fetch('/api/analyses');
+                const data = await response.json();
+                
+                // Make sure we have an array of repositories
+                const newData = Array.isArray(data) ? data : [];
+                
+                // Only update if data has changed
+                if (JSON.stringify(newData) !== JSON.stringify(allRepositories)) {
+                    allRepositories = newData;
+                    setCache(newData);
+                    updateStats();
+                    populateLanguageFilter();
+                    applyFilters();
+                }
+            } catch (error) {
+                console.error('Failed to load repositories:', error);
+                if (!cachedData) {
+                    document.getElementById('repositoriesGrid').innerHTML = `
+                        <div class="error">
+                            <p>Failed to load repositories. Please try again.</p>
+                            <p class="error-details">${error.message}</p>
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        // Update stats bar
+        function updateStats() {
+            const totalAnalyses = allRepositories.length;
+            const avgScore = Math.round(
+                allRepositories.reduce((sum, repo) => 
+                    sum + (repo.analysis?.finalLegitimacyScore || 0), 0) / totalAnalyses
+            );
+            
+            // Find most common language
+            const languages = allRepositories.reduce((acc, repo) => {
+                const lang = repo.language || 'Unknown';
+                acc[lang] = (acc[lang] || 0) + 1;
+                return acc;
+            }, {});
+            const topLanguage = Object.entries(languages)
+                .sort((a, b) => b[1] - a[1])[0][0];
+
+            document.getElementById('totalAnalyses').textContent = totalAnalyses;
+            document.getElementById('avgScore').textContent = avgScore;
+            document.getElementById('topLanguage').textContent = topLanguage;
+        }
+
+        // Populate language filter
+        function populateLanguageFilter() {
+            const languages = [...new Set(allRepositories.map(repo => repo.language).filter(Boolean))];
+            const languageSelect = document.getElementById('languageSelect');
+            languages.forEach(lang => {
+                const option = document.createElement('option');
+                option.value = lang;
+                option.textContent = lang;
+                languageSelect.appendChild(option);
+            });
+        }
+
+        // Apply filters and sort
+        function applyFilters() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const language = document.getElementById('languageSelect').value;
+            const scoreRange = document.getElementById('scoreSelect').value;
+            const sortBy = document.getElementById('sortSelect').value;
+
+            // Create a single filtered array with one pass
+            const filtered = allRepositories.filter(repo => {
+                const matchesSearch = !searchTerm || 
+                    repo.fullName.toLowerCase().includes(searchTerm) ||
+                    (repo.description || '').toLowerCase().includes(searchTerm);
+                
+                const matchesLanguage = language === 'all' || 
+                    repo.language === language;
+                
+                let matchesScore = true;
+                if (scoreRange !== 'all') {
+                    const [min, max] = scoreRange.split('-').map(Number);
+                    const score = repo.analysis?.finalLegitimacyScore || 0;
+                    matchesScore = score >= min && score <= max;
+                }
+
+                return matchesSearch && matchesLanguage && matchesScore;
+            });
+
+            // Sort only once
+            const sortFn = (() => {
+                switch (sortBy) {
+                    case 'date':
+                        return (a, b) => new Date(b.lastAnalyzed) - new Date(a.lastAnalyzed);
+                    case 'score':
+                        return (a, b) => (b.analysis?.finalLegitimacyScore || 0) - (a.analysis?.finalLegitimacyScore || 0);
+                    case 'stars':
+                        return (a, b) => (b.stars || 0) - (a.stars || 0);
+                    default:
+                        return () => 0;
+                }
+            })();
+
+            filtered.sort(sortFn);
+            displayRepositories(filtered);
+        }
+
+        // Display repositories
+        function displayRepositories(repositories) {
+            const start = (currentPage - 1) * PAGE_SIZE;
+            const end = start + PAGE_SIZE;
+            const pageRepositories = repositories.slice(start, end);
+
+            // Create document fragment for better performance
+            const fragment = document.createDocumentFragment();
+            
+            pageRepositories.forEach(repo => {
+                const card = document.createElement('div');
+                card.className = 'repository-card';
+                card.onclick = () => window.location.href = `/analysis.html?repo=${repo.fullName}`;
+                
+                card.innerHTML = `
+                    <div class="repo-header">
+                        <div class="repo-name">${repo.fullName}</div>
+                        <div class="repo-stats">
+                            <span>⭐ ${repo.stars || 0}</span>
+                            <span>🔄 ${repo.forks || 0}</span>
+                        </div>
+                    </div>
+                    <div class="repo-description">${repo.description || 'No description available'}</div>
+                    <div class="score-badge ${getScoreClass(repo.analysis?.finalLegitimacyScore)}">
+                        Score: ${repo.analysis?.finalLegitimacyScore || 0}/100
+                    </div>
+                    <div class="repo-meta">
+                        <div class="meta-left">
+                            <span>${repo.language || 'Unknown'}</span>
+                        </div>
+                        <div class="meta-right">
+                            Analyzed: ${new Date(repo.lastAnalyzed).toLocaleDateString()}
+                        </div>
+                    </div>
+                `;
+                
+                fragment.appendChild(card);
+            });
+
+            const grid = document.getElementById('repositoriesGrid');
+            grid.innerHTML = '';
+            grid.appendChild(fragment);
+
+            updatePagination(repositories.length);
+        }
+
+        // Update pagination
+        function updatePagination(totalItems) {
+            const totalPages = Math.ceil(totalItems / PAGE_SIZE);
+            const pagination = document.getElementById('pagination');
+            
+            let html = '';
+            if (currentPage > 1) {
+                html += `<button class="page-button" onclick="changePage(${currentPage - 1})">Previous</button>`;
+            }
+            
+            for (let i = 1; i <= totalPages; i++) {
+                if (i === 1 || i === totalPages || (i >= currentPage - 2 && i <= currentPage + 2)) {
+                    html += `<button class="page-button ${i === currentPage ? 'active' : ''}" 
+                            onclick="changePage(${i})">${i}</button>`;
+                } else if (i === currentPage - 3 || i === currentPage + 3) {
+                    html += `<span class="page-ellipsis">...</span>`;
+                }
+            }
+            
+            if (currentPage < totalPages) {
+                html += `<button class="page-button" onclick="changePage(${currentPage + 1})">Next</button>`;
+            }
+            
+            pagination.innerHTML = html;
+        }
+
+        // Change page
+        function changePage(page) {
+            currentPage = page;
+            applyFilters();
+        }
+
+        // Add debounce function
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        // Update search event listener
+        document.getElementById('searchInput').addEventListener('input', 
+            debounce(() => {
+                currentPage = 1;
+                applyFilters();
+            }, 300)
+        );
+
+        // Handle filter changes
+        ['sortSelect', 'languageSelect', 'scoreSelect'].forEach(id => {
+            document.getElementById(id).addEventListener('change', () => {
+                currentPage = 1;
+                applyFilters();
+            });
+        });
+
+        // Add loading state
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('repositoriesGrid').innerHTML = `
+                <div class="loading">Loading repositories...</div>
+            `;
+            loadRepositories();
+        });
+
+        // Add this to handle initial load
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const [analysesResponse, statsResponse] = await Promise.all([
+                    fetch('/api/analyses'),
+                    fetch('/api/stats')
+                ]);
+
+                if (!analysesResponse.ok || !statsResponse.ok) {
+                    throw new Error('Failed to fetch data');
+                }
+
+                const analyses = await analysesResponse.json();
+                const stats = await statsResponse.json();
+
+                // Update UI with data
+                updateStats(stats);
+                displayRepositories(analyses);
+                populateLanguageFilter(analyses);
+            } catch (error) {
+                console.error('Failed to load data:', error);
+                showError(error.message);
+            }
+        });
+    </script>
+</body>
+</html> 

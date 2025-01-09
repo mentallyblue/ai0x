@@ -7,74 +7,730 @@
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16.png">
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap">
+    <link rel="stylesheet" href="/css/components/header.css">
     <link rel="stylesheet" href="/css/styles.css">
-    <link rel="stylesheet" href="/css/header.css">
     <script src="/js/header.js"></script>
-    <script src="/js/main.js"></script>
 </head>
 <body>
+    <!-- Header will be injected by header.js -->
     <div class="container">
-        <div class="repo-header">
-            <div class="repo-title">
-                <h1 id="repoName"></h1>
+        <div class="sidebar">
+            <div class="input-group">
+                <h2>Analyze GitHub Repository</h2>
+                <input type="text" id="repoUrl" placeholder="Enter GitHub repository URL">
+                <button id="analyzeButton" class="analyze-button">
+                    Analyze Repository
+                </button>
             </div>
-            <a id="githubLink" href="#" target="_blank" class="github-button">
-                <svg height="32" width="32" viewBox="0 0 16 16" fill="currentColor">
-                    <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
-                </svg>
-                View on GitHub
-            </a>
+
+            <div id="recentList" class="recent-analyses">
+                <div class="loading-placeholder">
+                    <div class="placeholder-grid">
+                        <div class="placeholder-card"></div>
+                        <div class="placeholder-card"></div>
+                        <div class="placeholder-card"></div>
+                    </div>
+                </div>
+            </div>
         </div>
+
+        <div class="results-section">
         <div id="result">
-            <div class="loading">Loading analysis...</div>
+                <div class="search-prompt">
+                    <h2>🔍 Analyze a GitHub Repository</h2>
+                    <p>Enter a GitHub repository URL in the sidebar or select from recent analyses to begin.</p>
+                    <div class="prompt-examples">
+                        <p>Example: <span class="example-url">https://github.com/mentallyblue/ai0x</span></p>
+                        <small class="example-description">AI-powered research agent that analyzes GitHub repositories</small>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', async function() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const repoFullName = urlParams.get('repo');
-            
-            if (!repoFullName) {
-                document.getElementById('result').innerHTML = '<div class="error">No repository specified</div>';
-                return;
+        // Display analysis results
+        function displayAnalysis(data) {
+            const container = document.getElementById('result');
+            if (!container) return;
+
+            // Create repository header with metadata
+            const repoHeader = `
+                <div class="repo-header">
+                    <div class="repo-title">
+                        <svg height="16" width="16" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+                        </svg>
+                        <h2><a href="https://github.com/${data.fullName}" target="_blank" rel="noopener noreferrer">${data.fullName}</a></h2>
+                    </div>
+                    <div class="repo-stats">
+                        <span title="Stars">⭐ ${data.stars || 0}</span>
+                        <span title="Forks">🔄 ${data.forks || 0}</span>
+                        <span title="Language">${data.language || 'Unknown'}</span>
+                    </div>
+                </div>
+            `;
+
+            // Helper function to determine score level
+            function getScoreLevel(score, maxScore = 100) {
+                // Convert score to percentage for consistent comparison
+                const percentage = (score / maxScore) * 100;
+                
+                if (percentage >= 80) return 'high';
+                if (percentage >= 60) return 'medium';
+                return 'low';
             }
 
-            // Update page title and repository information
-            document.title = `AI0x | ${repoFullName}`;
-            document.getElementById('repoName').textContent = repoFullName;
-            document.getElementById('githubLink').href = `https://github.com/${repoFullName}`;
+            // Helper function to get score label
+            function getScoreLabel(score) {
+                if (score >= 80) return 'Excellent';
+                if (score >= 50) return 'Average';
+                return 'Caution';
+            }
 
+            // Helper function to get score description
+            function getScoreDescription(score, type) {
+                const descriptions = {
+                    legitimacy: {
+                        high: "Excellent code quality and organization. The project follows best practices and maintains high standards.",
+                        medium: "Good code quality with room for improvement. Some best practices are followed.",
+                        low: "Needs significant improvement in code quality and organization."
+                    },
+                    trust: {
+                        high: "Very trustworthy implementation with robust security measures.",
+                        medium: "Generally trustworthy with some areas needing attention.",
+                        low: "Several security and trust concerns need to be addressed."
+                    }
+                };
+                
+                const level = score >= 80 ? 'high' : score >= 50 ? 'medium' : 'low';
+                return descriptions[type][level];
+            }
+
+            // Extract scores from fullAnalysis if detailedScores are missing or zero
+            function extractScoresFromFullAnalysis(fullAnalysis) {
+                const scores = {
+                    codeQuality: 0,
+                    projectStructure: 0,
+                    implementation: 0,
+                    documentation: 0
+                };
+
+                if (!fullAnalysis) return scores;
+
+                // Extract scores using regex
+                const scoreRegex = /## (\w+)\s*(?:Quality\s*)?Score:\s*(\d+)\/25/g;
+                let match;
+                
+                while ((match = scoreRegex.exec(fullAnalysis)) !== null) {
+                    const category = match[1].toLowerCase().replace(/\s+/g, '');
+                    const score = parseInt(match[2]);
+                    
+                    // Map the category names correctly
+                    const categoryMap = {
+                        'code': 'codeQuality',
+                        'projectstructure': 'projectStructure',
+                        'implementation': 'implementation',
+                        'documentation': 'documentation'
+                    };
+                    
+                    if (categoryMap[category]) {
+                        scores[categoryMap[category]] = score;
+                    }
+                }
+
+                return scores;
+            }
+
+            // Calculate legitimacy score from detailed scores
+            function calculateLegitimacyScore(scores) {
+                return Math.round(
+                    (scores.codeQuality + 
+                     scores.projectStructure + 
+                     scores.implementation + 
+                     scores.documentation) / 100 * 100
+                );
+            }
+
+            // Get scores either from detailedScores or extract from fullAnalysis
+            const extractedScores = extractScoresFromFullAnalysis(data.analysis?.fullAnalysis);
+            const scores = {
+                codeQuality: data.analysis?.detailedScores?.codeQuality || extractedScores.codeQuality,
+                projectStructure: data.analysis?.detailedScores?.projectStructure || extractedScores.projectStructure,
+                implementation: data.analysis?.detailedScores?.implementation || extractedScores.implementation,
+                documentation: data.analysis?.detailedScores?.documentation || extractedScores.documentation
+            };
+
+            // Calculate legitimacy score if it's missing or zero
+            if (!data.analysis?.legitimacyScore) {
+                data.analysis.legitimacyScore = calculateLegitimacyScore(scores);
+            }
+
+            // Update the metrics grid section
+            const metricsGrid = `
+                <div class="metrics-grid">
+                    <div class="metric-card" data-score="${getScoreLevel(scores.codeQuality, 25)}">
+                        <div class="metric-header">Code Quality</div>
+                        <div class="metric-score">${scores.codeQuality}<span class="metric-max">/25</span></div>
+                        <div class="metric-description">Code readability, maintainability, and adherence to best practices</div>
+                    </div>
+                    <div class="metric-card" data-score="${getScoreLevel(scores.projectStructure, 25)}">
+                        <div class="metric-header">Project Structure</div>
+                        <div class="metric-score">${scores.projectStructure}<span class="metric-max">/25</span></div>
+                        <div class="metric-description">Organization, modularity, and architecture patterns</div>
+                    </div>
+                    <div class="metric-card" data-score="${getScoreLevel(scores.implementation, 25)}">
+                        <div class="metric-header">Implementation</div>
+                        <div class="metric-score">${scores.implementation}<span class="metric-max">/25</span></div>
+                        <div class="metric-description">AI/ML implementation quality and best practices</div>
+                    </div>
+                    <div class="metric-card" data-score="${getScoreLevel(scores.documentation, 25)}">
+                        <div class="metric-header">Documentation</div>
+                        <div class="metric-score">${scores.documentation}<span class="metric-max">/25</span></div>
+                        <div class="metric-description">Code comments, README, and API documentation</div>
+                    </div>
+                </div>`;
+
+            // Helper function to format category names
+            function formatCategoryName(category) {
+                const names = {
+                    codeQuality: "Code Quality",
+                    projectStructure: "Project Structure",
+                    documentation: "Documentation",
+                    security: "Security"
+                };
+                return names[category] || category;
+            }
+
+            // Helper function to get category descriptions
+            function getCategoryDescription(category) {
+                const descriptions = {
+                    codeQuality: "Code readability, maintainability, and adherence to best practices",
+                    projectStructure: "Organization, modularity, and architecture patterns",
+                    documentation: "Code comments, README, and API documentation",
+                    security: "Security practices and vulnerability prevention"
+                };
+                return descriptions[category] || '';
+            }
+
+            // Extract and format red flags
+            const redFlags = extractRedFlags(data.analysis?.fullAnalysis || '');
+            const redFlagsSection = redFlags ? `
+                <div class="red-flags-section">
+                    <div class="red-flags-header">
+                        <h2>⚠️ Red Flags</h2>
+                        <span class="red-flags-count">${countRedFlags(data.analysis?.fullAnalysis || '')} issues found</span>
+                    </div>
+                    <div class="red-flags-grid">
+                        ${formatRedFlags(redFlags)}
+                    </div>
+                </div>
+            ` : '';
+
+            // Extract and format AI Implementation
+            const aiImplementation = extractAIImplementation(data.analysis?.fullAnalysis || '');
+            const aiSection = aiImplementation ? `
+                <div class="ai-implementation-section">
+                    <h2>🤖 AI Implementation</h2>
+                    <div class="ai-content">
+                        ${aiImplementation}
+                    </div>
+                </div>
+            ` : '';
+
+            // Convert remaining markdown to HTML
+            const mainContent = marked.parse(data.analysis?.fullAnalysis || '');
+
+            const projectStatus = `
+                <div class="project-status">
+                    <div class="status-item ${data.analysis?.codeReview?.aiAnalysis?.hasAI ? 'has-ai' : 'no-ai'}">
+                        <div class="status-icon">
+                            ${data.analysis?.codeReview?.aiAnalysis?.hasAI ? '🤖' : '⚠️'}
+                        </div>
+                        <div class="status-content">
+                            <div class="status-label">AI Implementation</div>
+                            <div class="status-value">
+                                ${data.analysis?.codeReview?.aiAnalysis?.hasAI ? 
+                                    `Detected (Score: ${data.analysis?.codeReview?.aiAnalysis?.score}/100)` : 
+                                    'Not Detected'}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="status-item investment-${getInvestmentLevel(
+                        data.analysis?.codeReview?.investmentRanking?.confidence,
+                        data.analysis?.codeReview?.investmentRanking?.rating
+                    )}">
+                        <div class="status-icon">💎</div>
+                        <div class="status-content">
+                            <div class="status-label">Investment Potential</div>
+                            <div class="status-value">
+                                ${formatInvestmentRanking(
+                                    data.analysis?.codeReview?.investmentRanking?.confidence,
+                                    data.analysis?.codeReview?.investmentRanking?.rating
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+
+            container.innerHTML = `
+                ${repoHeader}
+                ${projectStatus}
+                <div class="scores-container">
+                    <div class="main-scores">
+                        <div class="score-item primary" 
+                             style="--dynamic-score-color: ${getScoreColor(data.analysis?.legitimacyScore ?? 0)}; --dynamic-score-rgb: ${hexToRgb(getScoreColor(data.analysis?.legitimacyScore ?? 0))}">
+                            <span class="score-label">Legitimacy Score</span>
+                            <span class="score-value">${data.analysis?.legitimacyScore ?? 0}<span class="score-max">/100</span></span>
+                            <span class="score-explanation">${getScoreExplanation(data.analysis?.legitimacyScore ?? 0)}</span>
+                            <p class="score-description">${getScoreDescription(data.analysis?.legitimacyScore ?? 0, 'legitimacy')}</p>
+                        </div>
+                        <div class="score-item primary" 
+                             style="--dynamic-score-color: ${getScoreColor(data.analysis?.trustScore ?? 0)}; --dynamic-score-rgb: ${hexToRgb(getScoreColor(data.analysis?.trustScore ?? 0))}">
+                            <span class="score-label">Trust Score</span>
+                            <span class="score-value">${data.analysis?.trustScore ?? 0}<span class="score-max">/100</span></span>
+                            <span class="score-explanation">${getScoreExplanation(data.analysis?.trustScore ?? 0)}</span>
+                            <p class="score-description">${getScoreDescription(data.analysis?.trustScore ?? 0, 'trust')}</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Add overall assessment section -->
+                    <div class="overall-assessment">
+                        <h3 class="assessment-title">Overall Assessment</h3>
+                        <div class="assessment-content">
+                            ${data.analysis?.codeReview?.overallAssessment?.split('\n\n').map(paragraph => 
+                                `<p>${paragraph}</p>`
+                            ).join('')}
+                        </div>
+                    </div>
+
+                    <h3 class="metrics-title">Code Quality Metrics</h3>
+                    ${metricsGrid}
+                </div>
+                ${redFlagsSection}
+                ${aiSection}
+                <div class="analysis-content">
+                    ${mainContent}
+                </div>
+            `;
+        }
+
+        // Helper function to extract red flags section
+        function extractRedFlags(markdown) {
+            const redFlagsMatch = markdown.match(/(?:^|\n)#+\s*Red Flags\s*\n([\s\S]*?)(?:\n#+|$)/i);
+            return redFlagsMatch ? marked.parse(redFlagsMatch[1].trim()) : null;
+        }
+
+        // Helper function to get score color
+        function getScoreColor(score) {
+            if (score >= 90) return '#22c55e'; // Bright green
+            if (score >= 80) return '#15803d'; // Dark green
+            if (score >= 70) return '#eab308'; // Yellow
+            if (score >= 60) return '#f97316'; // Orange
+            return '#ef4444'; // Red
+        }
+
+        // Helper function to get score explanation
+        function getScoreExplanation(score) {
+            if (score >= 90) return 'Outstanding';
+            if (score >= 80) return 'Excellent';
+            if (score >= 70) return 'Good';
+            if (score >= 60) return 'Fair';
+            return 'Needs Improvement';
+        }
+
+        // Update the AI Implementation extraction with better explanation
+        function extractAIImplementation(markdown) {
+            const aiMatch = markdown.match(/(?:^|\n)#+\s*(?:AI Implementation|Implementation Details)\s*\n([\s\S]*?)(?:\n#+|$)/i);
+            
+            if (!aiMatch) return null;
+
+            const content = aiMatch[1].trim();
+            
+            // Add an explanation section at the top
+            const explanation = `
+                <div class="ai-explanation">
+                    <p class="explanation-title">Implementation Overview</p>
+                    <p>This section details how AI/ML is integrated into the project, including:</p>
+                    <ul>
+                        <li>Core AI components and technologies used</li>
+                        <li>Integration methods and architecture</li>
+                        <li>Model specifications and configurations</li>
+                        <li>Data processing and inference pipelines</li>
+                    </ul>
+                </div>
+            `;
+            
+            // Parse the content and wrap different parts with styled divs
+            const formattedContent = content
+                // Style code blocks with better formatting
+                .replace(/```(\w+)?\n([\s\S]*?)```/g, (match, lang, code) => `
+                    <div class="ai-code-block">
+                        <div class="code-header">
+                            <span class="lang-label">${lang || 'Code'}</span>
+                            <span class="code-type">Implementation</span>
+                        </div>
+                        <pre><code class="${lang || ''}">${code.trim()}</code></pre>
+                    </div>
+                `)
+                // Style key features/components with icons
+                .replace(/^- (.*?):/gm, match => `
+                    <div class="ai-feature">
+                        <span class="feature-icon">🔹</span>
+                        ${match.slice(2)}
+                    </div>
+                `)
+                // Highlight AI-related terms with tooltips
+                .replace(/\b(AI|ML|Neural Network|Machine Learning|GPT|LLM|Transformer|Model|Training|Inference)\b/g, 
+                        '<span class="ai-term" title="Artificial Intelligence/Machine Learning Term">$1</span>');
+
+            return `
+                ${explanation}
+                <div class="ai-implementation-content">
+                    ${marked.parse(formattedContent)}
+                </div>
+            `;
+        }
+
+        // Display recent analyses list
+        async function displayRecentList(analyses) {
+            const recentList = document.getElementById('recentList');
+            if (!recentList) return;
+
+            const recentHtml = `
+                <div class="recent-header">
+                    <span class="recent-label">Recent Analyses (${analyses.length})</span>
+                </div>
+                <div class="recent-grid">
+                    ${analyses.map(analysis => `
+                        <div class="analysis-card" data-repo="${analysis.repoFullName}">
+                            <div class="card-header">
+                                <svg height="16" width="16" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+                                </svg>
+                                <h3>${analysis.repoFullName}</h3>
+                            </div>
+                            <div class="card-meta">
+                                <div class="meta-stats">
+                                    <span title="Stars">⭐ ${analysis.stars || 0}</span>
+                                    <span title="Forks">🔄 ${analysis.forks || 0}</span>
+                                    <span title="Language">${analysis.language || 'Unknown'}</span>
+                                </div>
+                                <p class="timestamp">${new Date(analysis.timestamp).toLocaleString()}</p>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>`;
+
+            recentList.innerHTML = recentHtml;
+
+            // Add click handlers for analysis cards
+            document.querySelectorAll('.analysis-card').forEach(card => {
+                card.addEventListener('click', async () => {
+                    const repoFullName = card.dataset.repo;
+                    await loadAnalysis(repoFullName);
+                    // Update URL without page reload
+                    history.pushState({}, '', `/analysis.html?repo=${repoFullName}`);
+                });
+            });
+        }
+
+        // Load analysis for a specific repository
+        async function loadAnalysis(repoFullName) {
             try {
+                // Try to load from cache first
+                const cachedAnalysis = getCachedAnalysis(repoFullName);
+                if (cachedAnalysis) {
+                    displayAnalysis(cachedAnalysis);
+                }
+
+                // Fetch fresh data
                 const [owner, repo] = repoFullName.split('/');
                 const response = await fetch(`/api/repository/${owner}/${repo}`);
                 const data = await response.json();
                 
                 if (response.ok) {
-                    displayAnalysis({
-                        analysis: data.analysis
-                    });
+                    // Prepare the display data with the correct structure
+                    const displayData = {
+                        fullName: repoFullName,
+                        stars: data.stars || 0,
+                        forks: data.forks || 0,
+                        language: data.language || 'Unknown',
+                        description: data.description || '',
+                        analysis: data.analysis || {}
+                    };
+
+                    // Cache the display data
+                    cacheAnalysis(repoFullName, displayData);
+                    
+                    // Update display only if data is different
+                    if (!cachedAnalysis || JSON.stringify(cachedAnalysis) !== JSON.stringify(displayData)) {
+                        displayAnalysis(displayData);
+                    }
+                } else {
+                    if (!cachedAnalysis) {
+                        document.getElementById('result').innerHTML = `
+                            <div class="error">
+                                <div>Failed to analyze repository</div>
+                                <div class="error-details">${data.error || 'Unknown error occurred'}</div>
+                            </div>
+                        `;
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load analysis:', error);
+                // If we have cached data, keep displaying it on error
+                if (!cachedAnalysis) {
+                    document.getElementById('result').innerHTML = `
+                        <div class="error">
+                            <div>Failed to load analysis</div>
+                            <div class="error-details">${error.message}</div>
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        // Load recent analyses
+        async function loadRecentAnalyses() {
+            try {
+                // Try to load from cache first
+                const cachedAnalyses = getCachedAnalyses();
+                if (cachedAnalyses) {
+                    displayRecentList(cachedAnalyses);
+                }
+
+                // Fetch fresh data
+                const response = await fetch('/api/recent-analyses');
+                if (!response.ok) {
+                    throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+                }
+                const data = await response.json();
+                
+                if (data && data.analyses && data.analyses.length > 0) {
+                    // Cache the fresh data
+                    cacheAnalyses(data.analyses);
+                    // Update display only if data is different
+                    if (!cachedAnalyses || JSON.stringify(cachedAnalyses) !== JSON.stringify(data.analyses)) {
+                        displayRecentList(data.analyses);
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load recent analyses:', error);
+                // If we have cached data, keep displaying it on error
+                const cachedAnalyses = getCachedAnalyses();
+                if (cachedAnalyses && !document.querySelector('.recent-grid')) {
+                    displayRecentList(cachedAnalyses);
+                }
+            }
+        }
+
+        // Add these cache-related functions after the existing functions
+        function getCachedAnalyses() {
+            try {
+                const cached = localStorage.getItem('recentAnalyses');
+                if (cached) {
+                    const { timestamp, analyses } = JSON.parse(cached);
+                    // Cache expires after 5 minutes
+                    if (Date.now() - timestamp < 5 * 60 * 1000) {
+                        return analyses;
+                    }
+                }
+            } catch (error) {
+                console.error('Error reading cache:', error);
+            }
+            return null;
+        }
+
+        function cacheAnalyses(analyses) {
+            try {
+                localStorage.setItem('recentAnalyses', JSON.stringify({
+                    timestamp: Date.now(),
+                    analyses
+                }));
+            } catch (error) {
+                console.error('Error caching analyses:', error);
+            }
+        }
+
+        function getCachedAnalysis(repoFullName) {
+            try {
+                const cached = localStorage.getItem(`analysis:${repoFullName}`);
+                if (cached) {
+                    const { timestamp, data } = JSON.parse(cached);
+                    // Cache expires after 30 minutes
+                    if (Date.now() - timestamp < 30 * 60 * 1000) {
+                        return data;
+                    }
+                }
+            } catch (error) {
+                console.error('Error reading analysis cache:', error);
+            }
+            return null;
+        }
+
+        function cacheAnalysis(repoFullName, data) {
+            try {
+                localStorage.setItem(`analysis:${repoFullName}`, JSON.stringify({
+                    timestamp: Date.now(),
+                    data
+                }));
+            } catch (error) {
+                console.error('Error caching analysis:', error);
+            }
+        }
+
+        // Helper function to convert hex to RGB
+        function hexToRgb(hex) {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? 
+                `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : 
+                '255, 255, 255';
+        }
+
+        // Helper function to count red flags
+        function countRedFlags(markdown) {
+            const redFlagsMatch = markdown.match(/(?:^|\n)#+\s*Red Flags\s*\n([\s\S]*?)(?:\n#+|$)/i);
+            if (!redFlagsMatch) return 0;
+            return (redFlagsMatch[1].match(/^[-*•]\s/gm) || []).length;
+        }
+
+        // Helper function to format red flags
+        function formatRedFlags(content) {
+            return content
+                .replace(/<ul>/g, '<div class="red-flags-list">')
+                .replace(/<\/ul>/g, '</div>')
+                .replace(/<li>/g, '<div class="red-flag-item">')
+                .replace(/<\/li>/g, '</div>');
+        }
+
+        // Add helper functions
+        function getInvestmentLevel(confidence, rating) {
+            if (!confidence || !rating) return 'unknown';
+            
+            // Map rating strings to levels
+            const ratingMap = {
+                'High': 'high',
+                'Medium': 'medium',
+                'Low': 'low'
+            };
+
+            return ratingMap[rating] || 'unknown';
+        }
+
+        function formatInvestmentRanking(confidence, rating) {
+            if (!confidence || !rating) return 'Not Rated';
+            return `${rating} (${confidence}% confidence)`;
+        }
+
+        // Add this function before the DOMContentLoaded event listener
+        async function analyzeRepository(repoUrl) {
+            try {
+                // Extract owner and repo from URL
+                const urlPattern = /github\.com\/([^\/]+)\/([^\/]+)/;
+                const match = repoUrl.match(urlPattern);
+                
+                if (!match) {
+                    throw new Error('Invalid GitHub repository URL');
+                }
+
+                const [, owner, repo] = match;
+                const repoFullName = `${owner}/${repo}`;
+
+                // Show loading state
+                document.getElementById('result').innerHTML = `
+                    <div class="loading">
+                        Analyzing repository ${repoFullName}...
+                        <br>
+                        <small>This may take a few minutes</small>
+                    </div>
+                `;
+
+                // Make API request to analyze repository
+                const response = await fetch('/api/analyze', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ repoUrl })
+                });
+
+                const responseData = await response.json();
+
+                if (response.ok) {
+                    // Extract the actual data and prepare it for display
+                    const data = {
+                        fullName: repoFullName,
+                        stars: responseData.result?.repoDetails?.stargazers_count || 0,
+                        forks: responseData.result?.repoDetails?.forks_count || 0,
+                        language: responseData.result?.repoDetails?.language || 'Unknown',
+                        description: responseData.result?.repoDetails?.description || '',
+                        analysis: responseData.result?.analysis || {}
+                    };
+
+
+                    // Update URL without page reload
+                    history.pushState({}, '', `/analysis.html?repo=${repoFullName}`);
+                    // Display the analysis results
+                    displayAnalysis(data);
+                    // Refresh recent analyses list
+                    await loadRecentAnalyses();
                 } else {
                     document.getElementById('result').innerHTML = `
                         <div class="error">
-                            Error loading analysis: ${data.error}
-                            <br><br>
-                            <a href="/history.html" class="button">Back to History</a>
+                            <div class="error-details">${responseData.error || 'Unknown error occurred'}</div>
+                            <div class="error-details">${data.error || 'Unknown error occurred'}</div>
                         </div>
                     `;
                 }
             } catch (error) {
-                console.error('Failed to load analysis:', error);
+                console.error('Analysis failed:', error);
                 document.getElementById('result').innerHTML = `
                     <div class="error">
-                        Failed to load analysis
-                        <br><br>
-                        <a href="/history.html" class="button">Back to History</a>
+                        <div>Failed to analyze repository</div>
+                        <div class="error-details">${error.message}</div>
                     </div>
                 `;
             }
+        }
+
+        document.addEventListener('DOMContentLoaded', async function() {
+            const socket = io();
+            
+            // Load initial analysis if repo is specified in URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const repoFullName = urlParams.get('repo');
+            
+            if (repoFullName) {
+                await loadAnalysis(repoFullName);
+            } else {
+                // Show the search prompt if no repo is specified
+                const searchPrompt = `
+                    <div class="search-prompt">
+                        <h2>🔍 Analyze a GitHub Repository</h2>
+                        <p>Enter a GitHub repository URL in the sidebar or select from recent analyses to begin.</p>
+                        <div class="prompt-examples">
+                            <p>Example: <span class="example-url">https://github.com/mentallyblue/ai0x</span></p>
+                            <small class="example-description">AI-powered research agent that analyzes GitHub repositories</small>
+                        </div>
+                    </div>
+                `;
+                document.getElementById('result').innerHTML = searchPrompt;
+            }
+
+            // Load recent analyses for sidebar
+            await loadRecentAnalyses();
+
+            // Handle new analysis button
+            document.getElementById('analyzeButton').addEventListener('click', () => {
+                const repoUrl = document.getElementById('repoUrl').value.trim();
+                if (repoUrl) {
+                    analyzeRepository(repoUrl);
+                }
+            });
         });
     </script>
 </body>

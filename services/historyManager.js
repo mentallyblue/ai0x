@@ -63,28 +63,30 @@ async function getAnalysisHistory() {
 
 async function getRecentAnalyses() {
     try {
-        // Log the raw query for debugging
-        console.log('Executing recent analyses query...');
-        
         const analyses = await Repository.find()
             .select({
                 fullName: 1,
+                analysis: 1,
+                lastAnalyzed: 1,
                 description: 1,
                 language: 1,
                 stars: 1,
-                forks: 1,
-                lastAnalyzed: 1,
-                analysis: 1  // Select the entire analysis object
+                forks: 1
             })
             .sort({ lastAnalyzed: -1 })
             .limit(10)
-            .lean();  // Convert to plain JavaScript objects
+            .lean();
 
-        // Log the raw response
-        console.log('Raw DB response:', JSON.stringify(analyses, null, 2));
-
-        // Return the unmodified analyses
-        return analyses;
+        // Transform the data after fetching to match frontend expectations
+        return analyses.map(analysis => ({
+            repoFullName: analysis.fullName,
+            analysis: analysis.analysis?.fullAnalysis || analysis.analysis, // Handle both formats
+            timestamp: analysis.lastAnalyzed,
+            description: analysis.description,
+            language: analysis.language,
+            stars: analysis.stars,
+            forks: analysis.forks
+        }));
     } catch (error) {
         console.error('Error fetching recent analyses:', error);
         throw new Error('Failed to fetch recent analyses');

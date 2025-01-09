@@ -1,0 +1,23 @@
+.button {
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+}
+
+.button-primary {
+    background: var(--accent);
+    color: var(--bg-primary);
+}
+
+.button-secondary {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+}
+
+.button:hover {
+    opacity: 0.9;
+} 

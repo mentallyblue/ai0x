@@ -6,6 +6,7 @@ const { analyzeRepo } = require('../services/analyzer');
 const { Anthropic } = require('@anthropic-ai/sdk');
 const { analyzeSite } = require('../services/siteAnalyzer');
 const { Octokit } = require('@octokit/rest');
+const { getRecentAnalyses } = require('../services/historyManager');
 
 // Make sure this is at the top with other requires
 require('dotenv').config();
@@ -316,6 +317,20 @@ router.get('/search', async (req, res) => {
     } catch (error) {
         console.error('Search error:', error);
         res.status(500).json({ error: 'Failed to search repositories' });
+    }
+});
+
+// Add the recent analyses endpoint
+router.get('/recent-analyses', async (req, res) => {
+    try {
+        const analyses = await getRecentAnalyses();
+        res.json({ analyses });
+    } catch (error) {
+        console.error('Error fetching recent analyses:', error);
+        res.status(500).json({ 
+            error: 'Failed to fetch recent analyses',
+            details: error.message 
+        });
     }
 });
 
