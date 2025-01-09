@@ -49,11 +49,17 @@ function setupHeaderInteractions() {
         // Only add hover expand on non-mobile
         if (window.innerWidth > 768) {
             caDisplay.addEventListener('mouseenter', () => {
-                caDisplay.querySelector('.ca-text').textContent = FULL_CA;
+                const textElement = caDisplay.querySelector('.ca-text');
+                textElement.style.minWidth = '240px';  // Adjust based on full CA length
+                setTimeout(() => {
+                    textElement.textContent = FULL_CA;
+                }, 150);
             });
             
             caDisplay.addEventListener('mouseleave', () => {
-                caDisplay.querySelector('.ca-text').textContent = SHORTENED_CA;
+                const textElement = caDisplay.querySelector('.ca-text');
+                textElement.textContent = SHORTENED_CA;
+                textElement.style.minWidth = '80px';
             });
         }
     }
